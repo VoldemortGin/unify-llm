@@ -341,7 +341,7 @@ class Settings(BaseSettings):
         self.bible_use_database = self.get_config('data.bible.use_database', False)
         self.bible_database_version = self.get_config('data.bible.database_version', 'V7.0')
         
-        # Set database URL - PostgreSQL only
+        # Set database URL - PostgreSQL (optional for LLM-only usage)
         if self.DATABASE_URL and not self.DATABASE_URL.startswith('sqlite'):
             # Use DATABASE_URL if it's PostgreSQL
             self.database_url_computed = self.DATABASE_URL
@@ -357,11 +357,8 @@ class Settings(BaseSettings):
             else:
                 self.database_url_computed = base_url
         else:
-            # No valid PostgreSQL configuration found
-            raise ValueError(
-                "PostgreSQL configuration required. Set either DATABASE_URL or "
-                "POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, and POSTGRES_DB in .env"
-            )
+            # Database configuration is optional - set to None for LLM-only usage
+            self.database_url_computed = None
         
         # Store yaml config for reference
         self.yaml_config = YAML_CONFIG
