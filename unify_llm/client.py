@@ -68,7 +68,8 @@ class UnifyLLM:
 
         Args:
             provider: The provider name (e.g., "openai", "anthropic")
-            api_key: API key for authentication
+            api_key: API key for authentication. If not provided, will attempt
+                     to read from environment variable (e.g., OPENAI_API_KEY).
             base_url: Custom base URL (optional)
             timeout: Request timeout in seconds
             max_retries: Maximum number of retry attempts
@@ -83,6 +84,11 @@ class UnifyLLM:
             raise InvalidRequestError(
                 f"Provider '{provider}' not supported. Available providers: {available}"
             )
+
+        # Auto-load API key from environment if not provided
+        if api_key is None:
+            from unify_llm.utils import get_api_key_from_env
+            api_key = get_api_key_from_env(provider)
 
         # Create provider config
         config = ProviderConfig(
