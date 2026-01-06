@@ -51,7 +51,7 @@ Documentation = "https://unifyllm.readthedocs.io"
 Repository = "https://github.com/unifyllm/unifyllm"
 
 [tool.setuptools.packages.find]
-include = ["unifyllm*"]
+include = ["unify_llm*"]
 
 [tool.black]
 line-length = 100

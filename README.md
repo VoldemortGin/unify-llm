@@ -144,13 +144,36 @@ response = client.chat(
 
 **支持的模型**: 任何通过 Ollama 安装的模型 (llama2, mistral, phi, 等)
 
+### Databricks
+
+Databricks 提供 OpenAI 兼容的 API 端点，用于部署和调用模型。
+
+```python
+client = UnifyLLM(
+    provider="databricks",
+    api_key="dapi...",  # 或通过环境变量 DATABRICKS_API_KEY
+    base_url="https://your-workspace.cloud.databricks.com/serving-endpoints"  # 或通过环境变量 DATABRICKS_BASE_URL
+)
+
+response = client.chat(
+    model="your-endpoint-name",  # Databricks serving endpoint 名称
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+**环境变量配置**:
+- `DATABRICKS_API_KEY`: Databricks 个人访问令牌
+- `DATABRICKS_BASE_URL`: Databricks serving endpoint 的基础 URL
+
+**支持的模型**: 任何在 Databricks 上部署的模型 (DBRX, Llama, Mixtral, 等)
+
 ## API 文档
 
 ### UnifyLLM 类
 
 #### 初始化参数
 
-- `provider` (str): 提供商名称 ("openai", "anthropic", "gemini", "ollama")
+- `provider` (str): 提供商名称 ("openai", "anthropic", "gemini", "ollama", "databricks")
 - `api_key` (str, optional): API 密钥
 - `base_url` (str, optional): 自定义 API 端点
 - `timeout` (float, optional): 请求超时时间（秒），默认 60
