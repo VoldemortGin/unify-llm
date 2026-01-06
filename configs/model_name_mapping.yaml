@@ -5,62 +5,91 @@
 # Anthropic Claude 系列
 anthropic:
   # Claude 4.5 系列 (最新旗舰)
-  claude-4.5: claude-4-5-sonnet-20250601
-  claude-4.5-sonnet: claude-4-5-sonnet-20250601
-  claude-4.5-opus: claude-4-5-opus-20250601
+  claude-4.5: claude-sonnet-4-5-20250929
+  claude-4.5-sonnet: claude-sonnet-4-5-20250929
+  claude-4.5-opus: claude-opus-4-5-20251101
+  claude-4.5-haiku: claude-haiku-4-5-20251001
   # Claude 4 系列
   sonnet-4: claude-sonnet-4-20250514
   opus-4: claude-opus-4-20250514
-  # Claude 3.5 (性价比)
+  opus-4.1: claude-opus-4-1-20250805
+  # Claude 3.5/3.7 (性价比/旧版)
+  sonnet-3.7: claude-3-7-sonnet-20250219
   sonnet-3.5: claude-3-5-sonnet-20241022
   haiku-3.5: claude-3-5-haiku-20241022
 
 # Anthropic Claude (OpenAI兼容模式) - 使用相同的模型名称
 anthropic_openai:
   # Claude 4.5 系列 (最新旗舰)
-  claude-4.5: claude-4-5-sonnet-20250601
-  claude-4.5-sonnet: claude-4-5-sonnet-20250601
-  claude-4.5-opus: claude-4-5-opus-20250601
+  claude-4.5: claude-sonnet-4-5-20250929
+  claude-4.5-sonnet: claude-sonnet-4-5-20250929
+  claude-4.5-opus: claude-opus-4-5-20251101
+  claude-4.5-haiku: claude-haiku-4-5-20251001
   # Claude 4 系列
   sonnet-4: claude-sonnet-4-20250514
   opus-4: claude-opus-4-20250514
-  # Claude 3.5 (性价比)
+  opus-4.1: claude-opus-4-1-20250805
+  # Claude 3.5/3.7 (性价比/旧版)
+  sonnet-3.7: claude-3-7-sonnet-20250219
   sonnet-3.5: claude-3-5-sonnet-20241022
   haiku-3.5: claude-3-5-haiku-20241022
 
 # OpenAI GPT 系列
 openai:
-  # GPT-5 系列 (最新旗舰)
+  # GPT-5 系列 (最新旗舰, 2025年8月发布)
   gpt5: gpt-5
   gpt5-mini: gpt-5-mini
-  # GPT-4o 系列
+  gpt5-nano: gpt-5-nano
+  gpt5-thinking: gpt-5-thinking
+  gpt5-thinking-mini: gpt-5-thinking-mini
+  gpt5-pro: gpt-5-thinking-pro
+  # GPT-5.1/5.2 系列 (2025年11-12月更新)
+  gpt5.1: gpt-5.1
+  gpt5.2: gpt-5.2
+  # GPT-4.1 系列
+  gpt4.1: gpt-4.1
+  gpt4.1-mini: gpt-4.1-mini
+  gpt4.1-nano: gpt-4.1-nano
+  # GPT-4o 系列 (旧版)
   gpt4o: gpt-4o
   gpt4o-mini: gpt-4o-mini
   # o 系列推理模型
   o1: o1
   o3: o3
   o3-mini: o3-mini
+  o3-pro: o3-pro
   o4-mini: o4-mini
 
 # Google Gemini 系列
 gemini:
-  # Gemini 3 (最新旗舰)
-  gemini-3: gemini-3.0-ultra
-  gemini-3-ultra: gemini-3.0-ultra
-  gemini-3-pro: gemini-3.0-pro
-  gemini-3-flash: gemini-3.0-flash
-  # Gemini 2.5 (性价比)
+  # Gemini 3 系列 (最新旗舰, 2025年11-12月发布)
+  gemini-3: gemini-3-pro-preview
+  gemini-3-pro: gemini-3-pro-preview
+  gemini-3-flash: gemini-3-flash-preview
+  gemini-3-deep-think: gemini-3-deep-think
+  # Gemini 2.5 系列 (性价比)
   gemini-2.5: gemini-2.5-pro
+  gemini-2.5-pro: gemini-2.5-pro
   gemini-2.5-flash: gemini-2.5-flash
+  gemini-2.5-flash-lite: gemini-2.5-flash-lite
 
 # xAI Grok 系列
 grok:
-  # Grok 4 (最新旗舰)
+  # Grok 4 系列 (最新旗舰, 2025年7月发布)
   grok-4: grok-4
-  grok-4-mini: grok-4-mini
-  # Grok 3 (性价比)
+  grok-4-fast: grok-4-fast-reasoning
+  grok-4-fast-non-reasoning: grok-4-fast-non-reasoning
+  grok-4.1-fast: grok-4-1-fast-reasoning
+  grok-code-fast: grok-code-fast-1
+  # Grok 3 系列 (性价比)
   grok-3: grok-3
-  grok-3-mini: grok-3-mini
+  grok-3-fast: grok-3-fast-beta
+  grok-3-mini: grok-3-mini-beta
+  grok-3-mini-fast: grok-3-mini-fast-beta
+  # Grok 2 系列 (旧版/图像)
+  grok-2: grok-2-1212
+  grok-2-vision: grok-2-vision-1212
+  grok-2-image: grok-2-image-1212
 
 # Ollama 本地模型
 ollama:
@@ -81,4 +110,3 @@ qwen:
   qwen-max: qwen-max
   qwen-plus: qwen-plus
   qwen-turbo: qwen-turbo
-
