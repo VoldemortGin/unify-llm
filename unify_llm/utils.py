@@ -8,7 +8,7 @@ import yaml
 
 
 # Cache for model name mappings
-_model_name_mapping: Optional[Dict[str, Dict[str, str]]] = None
+_model_name_mapping: Optional[Dict[str, str]] = None
 
 
 def get_model_name_mapping_path() -> Path:
@@ -24,11 +24,14 @@ def get_model_name_mapping_path() -> Path:
     return project_root / "configs" / "model_name_mapping.yaml"
 
 
-def load_model_name_mapping() -> Dict[str, Dict[str, str]]:
+def load_model_name_mapping() -> Dict[str, str]:
     """Load model name mappings from configuration file.
 
+    This mapping is specifically for OpenRouter provider.
+    Format: alias -> provider/model (OpenRouter format)
+
     Returns:
-        Dictionary of provider -> {alias -> full_model_name}
+        Dictionary of alias -> full_model_name (e.g., "claude-4.5" -> "anthropic/claude-sonnet-4-5-20250929")
     """
     global _model_name_mapping
 
@@ -50,38 +53,42 @@ def load_model_name_mapping() -> Dict[str, Dict[str, str]]:
 def resolve_model_name(provider: str, model: str) -> str:
     """Resolve a model alias to its full name.
 
-    If the model is an alias defined in model_name_mapping.yaml,
-    returns the full model name. Otherwise, returns the original model name.
+    For OpenRouter: uses the flat mapping from model_name_mapping.yaml
+    to convert aliases like "claude-4.5" to "anthropic/claude-sonnet-4-5-20250929".
+
+    For other providers: returns the original model name unchanged.
 
     Args:
-        provider: Provider name (e.g., "openai", "anthropic")
-        model: Model name or alias (e.g., "claude-4.5", "gpt4")
+        provider: Provider name (e.g., "openrouter", "openai", "anthropic")
+        model: Model name or alias (e.g., "claude-4.5", "gpt5")
 
     Returns:
         Full model name
 
     Example:
-        >>> resolve_model_name("anthropic", "claude-4.5")
-        "claude-sonnet-4-20250514"
-        >>> resolve_model_name("openai", "gpt-4-turbo")  # Not an alias
+        >>> resolve_model_name("openrouter", "claude-4.5")
+        "anthropic/claude-sonnet-4-5-20250929"
+        >>> resolve_model_name("openai", "gpt-4-turbo")  # Not OpenRouter, unchanged
         "gpt-4-turbo"
     """
+    # Only apply mapping for OpenRouter
+    if provider.lower() != "openrouter":
+        return model
+
     mapping = load_model_name_mapping()
 
-    provider_mapping = mapping.get(provider.lower(), {})
-
     # Return the mapped name if it exists, otherwise return original
-    return provider_mapping.get(model, model)
+    return mapping.get(model, model)
 
 
-def reload_model_name_mapping() -> Dict[str, Dict[str, str]]:
+def reload_model_name_mapping() -> Dict[str, str]:
     """Reload model name mappings from configuration file.
 
     Use this if you've updated the configuration file and want to
     reload without restarting.
 
     Returns:
-        Updated dictionary of provider -> {alias -> full_model_name}
+        Updated dictionary of alias -> full_model_name
     """
     global _model_name_mapping
     _model_name_mapping = None
@@ -113,6 +120,8 @@ def get_api_key_from_env(provider: str) -> Optional[str]:
         "gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
         "grok": ["XAI_API_KEY", "GROK_API_KEY"],
         "ollama": [],  # Ollama doesn't need API key
+        "openrouter": ["OPENROUTER_API_KEY"],
+        "databricks": ["DATABRICKS_API_KEY"],
     }
 
     provider_lower = provider.lower()

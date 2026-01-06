@@ -7,6 +7,8 @@ from unify_llm.providers.anthropic_openai import AnthropicOpenAIProvider
 from unify_llm.providers.gemini import GeminiProvider
 from unify_llm.providers.ollama import OllamaProvider
 from unify_llm.providers.grok import GrokProvider
+from unify_llm.providers.openrouter import OpenRouterProvider
+from unify_llm.providers.databricks import DatabricksProvider
 
 __all__ = [
     "BaseProvider",
@@ -16,4 +18,6 @@ __all__ = [
     "GeminiProvider",
     "OllamaProvider",
     "GrokProvider",
+    "OpenRouterProvider",
+    "DatabricksProvider",
 ]

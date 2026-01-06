@@ -16,6 +16,8 @@ from unify_llm.providers.anthropic_openai import AnthropicOpenAIProvider
 from unify_llm.providers.gemini import GeminiProvider
 from unify_llm.providers.ollama import OllamaProvider
 from unify_llm.providers.grok import GrokProvider
+from unify_llm.providers.openrouter import OpenRouterProvider
+from unify_llm.providers.databricks import DatabricksProvider
 from unify_llm.exceptions import InvalidRequestError
 from unify_llm.utils import resolve_model_name
 
@@ -57,6 +59,8 @@ class UnifyLLM:
         "gemini": GeminiProvider,
         "ollama": OllamaProvider,
         "grok": GrokProvider,
+        "openrouter": OpenRouterProvider,
+        "databricks": DatabricksProvider,
     }
 
     def __init__(
@@ -391,9 +395,11 @@ class UnifyLLM:
 
 
 if __name__ == '__main__':
-    llm = UnifyLLM(provider='openrouter')
+    llm = UnifyLLM(provider='databricks')
+    # llm = UnifyLLM(provider='openrouter')
     response = llm.chat(
-        model="claude-4.5-haiku",  # Will be resolved to claude-sonnet-4-20250514
+        # model="claude-4.5-haiku",  # Will be resolved to claude-sonnet-4-20250514
+        model="databricks-claude-opus-4-5",  # Will be resolved to claude-sonnet-4-20250514
         messages=[{"role": "user", "content": "Hello!"}]
     )
     print(response.content)
