@@ -1,7 +1,91 @@
 """Utility functions for UnifyLLM."""
 
 import os
+from pathlib import Path
 from typing import Dict, Optional
+
+import yaml
+
+
+# Cache for model name mappings
+_model_name_mapping: Optional[Dict[str, Dict[str, str]]] = None
+
+
+def get_model_name_mapping_path() -> Path:
+    """Get the path to model_name_mapping.yaml.
+
+    Returns:
+        Path to the model name mapping configuration file
+    """
+    # Try to find the configs directory relative to this file
+    current_dir = Path(__file__).parent
+    project_root = current_dir.parent
+
+    return project_root / "configs" / "model_name_mapping.yaml"
+
+
+def load_model_name_mapping() -> Dict[str, Dict[str, str]]:
+    """Load model name mappings from configuration file.
+
+    Returns:
+        Dictionary of provider -> {alias -> full_model_name}
+    """
+    global _model_name_mapping
+
+    if _model_name_mapping is not None:
+        return _model_name_mapping
+
+    mapping_path = get_model_name_mapping_path()
+
+    if not mapping_path.exists():
+        _model_name_mapping = {}
+        return _model_name_mapping
+
+    with open(mapping_path, "r", encoding="utf-8") as f:
+        _model_name_mapping = yaml.safe_load(f) or {}
+
+    return _model_name_mapping
+
+
+def resolve_model_name(provider: str, model: str) -> str:
+    """Resolve a model alias to its full name.
+
+    If the model is an alias defined in model_name_mapping.yaml,
+    returns the full model name. Otherwise, returns the original model name.
+
+    Args:
+        provider: Provider name (e.g., "openai", "anthropic")
+        model: Model name or alias (e.g., "claude-4.5", "gpt4")
+
+    Returns:
+        Full model name
+
+    Example:
+        >>> resolve_model_name("anthropic", "claude-4.5")
+        "claude-sonnet-4-20250514"
+        >>> resolve_model_name("openai", "gpt-4-turbo")  # Not an alias
+        "gpt-4-turbo"
+    """
+    mapping = load_model_name_mapping()
+
+    provider_mapping = mapping.get(provider.lower(), {})
+
+    # Return the mapped name if it exists, otherwise return original
+    return provider_mapping.get(model, model)
+
+
+def reload_model_name_mapping() -> Dict[str, Dict[str, str]]:
+    """Reload model name mappings from configuration file.
+
+    Use this if you've updated the configuration file and want to
+    reload without restarting.
+
+    Returns:
+        Updated dictionary of provider -> {alias -> full_model_name}
+    """
+    global _model_name_mapping
+    _model_name_mapping = None
+    return load_model_name_mapping()
 
 
 def get_api_key_from_env(provider: str) -> Optional[str]:
@@ -25,7 +109,9 @@ def get_api_key_from_env(provider: str) -> Optional[str]:
     env_var_map: Dict[str, list] = {
         "openai": ["OPENAI_API_KEY"],
         "anthropic": ["ANTHROPIC_API_KEY"],
+        "anthropic_openai": ["ANTHROPIC_API_KEY"],
         "gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        "grok": ["XAI_API_KEY", "GROK_API_KEY"],
         "ollama": [],  # Ollama doesn't need API key
     }
 

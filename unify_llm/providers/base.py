@@ -4,6 +4,10 @@ from abc import ABC, abstractmethod
 from typing import AsyncIterator, Iterator, Optional
 
 import httpx
+import rootutils
+
+ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
+
 from tenacity import (
     retry,
     stop_after_attempt,

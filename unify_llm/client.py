@@ -12,9 +12,12 @@ from unify_llm.models import (
 from unify_llm.providers.base import BaseProvider
 from unify_llm.providers.openai import OpenAIProvider
 from unify_llm.providers.anthropic import AnthropicProvider
+from unify_llm.providers.anthropic_openai import AnthropicOpenAIProvider
 from unify_llm.providers.gemini import GeminiProvider
 from unify_llm.providers.ollama import OllamaProvider
+from unify_llm.providers.grok import GrokProvider
 from unify_llm.exceptions import InvalidRequestError
+from unify_llm.utils import resolve_model_name
 
 
 class UnifyLLM:
@@ -50,19 +53,21 @@ class UnifyLLM:
     _providers: Dict[str, Type[BaseProvider]] = {
         "openai": OpenAIProvider,
         "anthropic": AnthropicProvider,
+        "anthropic_openai": AnthropicOpenAIProvider,
         "gemini": GeminiProvider,
         "ollama": OllamaProvider,
+        "grok": GrokProvider,
     }
 
     def __init__(
-        self,
-        provider: str,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        timeout: float = 60.0,
-        max_retries: int = 3,
-        organization: Optional[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+            self,
+            provider: str,
+            api_key: Optional[str] = None,
+            base_url: Optional[str] = None,
+            timeout: float = 60.0,
+            max_retries: int = 3,
+            organization: Optional[str] = None,
+            extra_headers: Optional[Dict[str, str]] = None,
     ):
         """Initialize the UnifyLLM client.
 
@@ -103,6 +108,7 @@ class UnifyLLM:
         # Initialize provider
         provider_class = self._providers[provider]
         self._provider: BaseProvider = provider_class(config)
+        self._provider_name = provider  # Save for model name resolution
 
     @classmethod
     def register_provider(cls, name: str, provider_class: Type[BaseProvider]) -> None:
@@ -133,20 +139,20 @@ class UnifyLLM:
         cls._providers[name] = provider_class
 
     def chat(
-        self,
-        model: str,
-        messages: List[Union[Message, Dict[str, str]]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        stop: Optional[Union[str, List[str]]] = None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: Optional[Union[str, Dict]] = None,
-        response_format: Optional[Dict[str, str]] = None,
-        user: Optional[str] = None,
-        **extra_params,
+            self,
+            model: str,
+            messages: List[Union[Message, Dict[str, str]]],
+            temperature: Optional[float] = None,
+            max_tokens: Optional[int] = None,
+            top_p: Optional[float] = None,
+            frequency_penalty: Optional[float] = None,
+            presence_penalty: Optional[float] = None,
+            stop: Optional[Union[str, List[str]]] = None,
+            tools: Optional[List[Dict]] = None,
+            tool_choice: Optional[Union[str, Dict]] = None,
+            response_format: Optional[Dict[str, str]] = None,
+            user: Optional[str] = None,
+            **extra_params,
     ) -> ChatResponse:
         """Make a synchronous chat request.
 
@@ -182,6 +188,9 @@ class UnifyLLM:
             print(response.content)
             ```
         """
+        # Resolve model alias to full name
+        resolved_model = resolve_model_name(self._provider_name, model)
+
         # Convert dict messages to Message objects
         parsed_messages = [
             msg if isinstance(msg, Message) else Message(**msg)
@@ -189,7 +198,7 @@ class UnifyLLM:
         ]
 
         request = ChatRequest(
-            model=model,
+            model=resolved_model,
             messages=parsed_messages,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -208,20 +217,20 @@ class UnifyLLM:
         return self._provider.chat(request)
 
     async def achat(
-        self,
-        model: str,
-        messages: List[Union[Message, Dict[str, str]]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        stop: Optional[Union[str, List[str]]] = None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: Optional[Union[str, Dict]] = None,
-        response_format: Optional[Dict[str, str]] = None,
-        user: Optional[str] = None,
-        **extra_params,
+            self,
+            model: str,
+            messages: List[Union[Message, Dict[str, str]]],
+            temperature: Optional[float] = None,
+            max_tokens: Optional[int] = None,
+            top_p: Optional[float] = None,
+            frequency_penalty: Optional[float] = None,
+            presence_penalty: Optional[float] = None,
+            stop: Optional[Union[str, List[str]]] = None,
+            tools: Optional[List[Dict]] = None,
+            tool_choice: Optional[Union[str, Dict]] = None,
+            response_format: Optional[Dict[str, str]] = None,
+            user: Optional[str] = None,
+            **extra_params,
     ) -> ChatResponse:
         """Make an asynchronous chat request.
 
@@ -235,6 +244,9 @@ class UnifyLLM:
             )
             ```
         """
+        # Resolve model alias to full name
+        resolved_model = resolve_model_name(self._provider_name, model)
+
         # Convert dict messages to Message objects
         parsed_messages = [
             msg if isinstance(msg, Message) else Message(**msg)
@@ -242,7 +254,7 @@ class UnifyLLM:
         ]
 
         request = ChatRequest(
-            model=model,
+            model=resolved_model,
             messages=parsed_messages,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -261,19 +273,19 @@ class UnifyLLM:
         return await self._provider.achat(request)
 
     def chat_stream(
-        self,
-        model: str,
-        messages: List[Union[Message, Dict[str, str]]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        stop: Optional[Union[str, List[str]]] = None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: Optional[Union[str, Dict]] = None,
-        user: Optional[str] = None,
-        **extra_params,
+            self,
+            model: str,
+            messages: List[Union[Message, Dict[str, str]]],
+            temperature: Optional[float] = None,
+            max_tokens: Optional[int] = None,
+            top_p: Optional[float] = None,
+            frequency_penalty: Optional[float] = None,
+            presence_penalty: Optional[float] = None,
+            stop: Optional[Union[str, List[str]]] = None,
+            tools: Optional[List[Dict]] = None,
+            tool_choice: Optional[Union[str, Dict]] = None,
+            user: Optional[str] = None,
+            **extra_params,
     ) -> Iterator[StreamChunk]:
         """Make a synchronous streaming chat request.
 
@@ -293,6 +305,9 @@ class UnifyLLM:
                     print(chunk.content, end="", flush=True)
             ```
         """
+        # Resolve model alias to full name
+        resolved_model = resolve_model_name(self._provider_name, model)
+
         # Convert dict messages to Message objects
         parsed_messages = [
             msg if isinstance(msg, Message) else Message(**msg)
@@ -300,7 +315,7 @@ class UnifyLLM:
         ]
 
         request = ChatRequest(
-            model=model,
+            model=resolved_model,
             messages=parsed_messages,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -318,19 +333,19 @@ class UnifyLLM:
         yield from self._provider.chat_stream(request)
 
     async def achat_stream(
-        self,
-        model: str,
-        messages: List[Union[Message, Dict[str, str]]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        stop: Optional[Union[str, List[str]]] = None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: Optional[Union[str, Dict]] = None,
-        user: Optional[str] = None,
-        **extra_params,
+            self,
+            model: str,
+            messages: List[Union[Message, Dict[str, str]]],
+            temperature: Optional[float] = None,
+            max_tokens: Optional[int] = None,
+            top_p: Optional[float] = None,
+            frequency_penalty: Optional[float] = None,
+            presence_penalty: Optional[float] = None,
+            stop: Optional[Union[str, List[str]]] = None,
+            tools: Optional[List[Dict]] = None,
+            tool_choice: Optional[Union[str, Dict]] = None,
+            user: Optional[str] = None,
+            **extra_params,
     ) -> AsyncIterator[StreamChunk]:
         """Make an asynchronous streaming chat request.
 
@@ -346,6 +361,9 @@ class UnifyLLM:
                     print(chunk.content, end="", flush=True)
             ```
         """
+        # Resolve model alias to full name
+        resolved_model = resolve_model_name(self._provider_name, model)
+
         # Convert dict messages to Message objects
         parsed_messages = [
             msg if isinstance(msg, Message) else Message(**msg)
@@ -353,7 +371,7 @@ class UnifyLLM:
         ]
 
         request = ChatRequest(
-            model=model,
+            model=resolved_model,
             messages=parsed_messages,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -370,3 +388,12 @@ class UnifyLLM:
 
         async for chunk in self._provider.achat_stream(request):
             yield chunk
+
+
+if __name__ == '__main__':
+    llm = UnifyLLM(provider='anthropic')
+    response = llm.chat(
+        model="claude-4.5",  # Will be resolved to claude-sonnet-4-20250514
+        messages=[{"role": "user", "content": "Hello!"}]
+    )
+    print(response.content)

@@ -1,0 +1,84 @@
+# 模型名称映射配置 (2026年1月最新)
+# 格式: 简短别名 -> 完整模型名称
+# 使用时可以直接输入别名，系统会自动转换为完整模型名称
+
+# Anthropic Claude 系列
+anthropic:
+  # Claude 4.5 系列 (最新旗舰)
+  claude-4.5: claude-4-5-sonnet-20250601
+  claude-4.5-sonnet: claude-4-5-sonnet-20250601
+  claude-4.5-opus: claude-4-5-opus-20250601
+  # Claude 4 系列
+  sonnet-4: claude-sonnet-4-20250514
+  opus-4: claude-opus-4-20250514
+  # Claude 3.5 (性价比)
+  sonnet-3.5: claude-3-5-sonnet-20241022
+  haiku-3.5: claude-3-5-haiku-20241022
+
+# Anthropic Claude (OpenAI兼容模式) - 使用相同的模型名称
+anthropic_openai:
+  # Claude 4.5 系列 (最新旗舰)
+  claude-4.5: claude-4-5-sonnet-20250601
+  claude-4.5-sonnet: claude-4-5-sonnet-20250601
+  claude-4.5-opus: claude-4-5-opus-20250601
+  # Claude 4 系列
+  sonnet-4: claude-sonnet-4-20250514
+  opus-4: claude-opus-4-20250514
+  # Claude 3.5 (性价比)
+  sonnet-3.5: claude-3-5-sonnet-20241022
+  haiku-3.5: claude-3-5-haiku-20241022
+
+# OpenAI GPT 系列
+openai:
+  # GPT-5 系列 (最新旗舰)
+  gpt5: gpt-5
+  gpt5-mini: gpt-5-mini
+  # GPT-4o 系列
+  gpt4o: gpt-4o
+  gpt4o-mini: gpt-4o-mini
+  # o 系列推理模型
+  o1: o1
+  o3: o3
+  o3-mini: o3-mini
+  o4-mini: o4-mini
+
+# Google Gemini 系列
+gemini:
+  # Gemini 3 (最新旗舰)
+  gemini-3: gemini-3.0-ultra
+  gemini-3-ultra: gemini-3.0-ultra
+  gemini-3-pro: gemini-3.0-pro
+  gemini-3-flash: gemini-3.0-flash
+  # Gemini 2.5 (性价比)
+  gemini-2.5: gemini-2.5-pro
+  gemini-2.5-flash: gemini-2.5-flash
+
+# xAI Grok 系列
+grok:
+  # Grok 4 (最新旗舰)
+  grok-4: grok-4
+  grok-4-mini: grok-4-mini
+  # Grok 3 (性价比)
+  grok-3: grok-3
+  grok-3-mini: grok-3-mini
+
+# Ollama 本地模型
+ollama:
+  llama4: llama4:latest
+  llama3.3: llama3.3:latest
+  qwen3: qwen3:latest
+  qwen2.5: qwen2.5:latest
+  deepseek-r1: deepseek-r1:latest
+  deepseek-v3: deepseek-v3:latest
+
+# 字节跳动豆包
+bytedance:
+  doubao-pro: doubao-1.5-pro-32k
+  doubao-lite: doubao-1.5-lite-32k
+
+# 阿里千问
+qwen:
+  qwen-max: qwen-max
+  qwen-plus: qwen-plus
+  qwen-turbo: qwen-turbo
+
