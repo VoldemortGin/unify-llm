@@ -391,9 +391,9 @@ class UnifyLLM:
 
 
 if __name__ == '__main__':
-    llm = UnifyLLM(provider='anthropic')
+    llm = UnifyLLM(provider='openrouter')
     response = llm.chat(
-        model="claude-4.5",  # Will be resolved to claude-sonnet-4-20250514
+        model="claude-4.5-haiku",  # Will be resolved to claude-sonnet-4-20250514
         messages=[{"role": "user", "content": "Hello!"}]
     )
     print(response.content)
