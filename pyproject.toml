@@ -33,6 +33,10 @@ dependencies = [
     "pyyaml>=6.0.3",
     "rootutils>=1.0.7",
     "pydantic-settings>=2.11.0",
+    # n8n-style agent dependencies
+    "croniter>=2.0.0",  # For schedule triggers
+    "fastapi>=0.110.0",  # For webhook server
+    "uvicorn>=0.27.0",  # For webhook server
 ]
 
 [project.optional-dependencies]
