@@ -5,8 +5,8 @@ These tests verify that the new providers (Qwen, ByteDance) are properly
 integrated and that the LangChain-compatible methods work correctly.
 """
 
-from unify_llm import UnifyLLM, LangChainAdapter
-from unify_llm.providers import QwenProvider, ByteDanceProvider
+from src import UnifyLLM, LangChainAdapter
+from src.providers import QwenProvider, ByteDanceProvider
 
 
 def test_provider_registration():

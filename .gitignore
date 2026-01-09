@@ -1,7 +1,7 @@
 
 # Claude AI configuration (keep local only)
 .claude/
-CLAUDE.md
+.claude/CLAUDE.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -220,3 +220,4 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .idea/
+.jbeval/

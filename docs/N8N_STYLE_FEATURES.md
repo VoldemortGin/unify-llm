@@ -14,7 +14,7 @@ UnifyLLM 现在是一个**功能完整的 n8n 风格 AI Agent 自动化平台**�
 
 - **ScheduleTrigger** - 基于 Cron 的定时触发器
   ```python
-  from unify_llm.agent import ScheduleTrigger, TriggerConfig, TriggerType
+  from src.agent import ScheduleTrigger, TriggerConfig, TriggerType
 
   config = TriggerConfig(
       id="daily_report",
@@ -71,7 +71,7 @@ UnifyLLM 现在是一个**功能完整的 n8n 风格 AI Agent 自动化平台**�
 #### 触发器管理器：
 
 ```python
-from unify_llm.agent import TriggerManager
+from src.agent import TriggerManager
 
 manager = TriggerManager()
 manager.add_trigger(schedule_trigger)
@@ -89,7 +89,7 @@ status = manager.get_status()
 类似 n8n 的 HTTP Request 节点，支持完整的 REST API 调用：
 
 ```python
-from unify_llm.agent import http_request, http_get, http_post
+from src.agent import http_request, http_get, http_post
 
 # GET 请求
 result = await http_get(
@@ -121,7 +121,7 @@ result = await http_request(
 **作为 Agent 工具使用：**
 
 ```python
-from unify_llm.agent import create_http_request_tool, ToolRegistry
+from src.agent import create_http_request_tool, ToolRegistry
 
 registry = ToolRegistry()
 http_tool = create_http_request_tool()
@@ -135,7 +135,7 @@ registry.register(http_tool)
 内置的 Webhook 服务器，接收 HTTP 请求并触发工作流：
 
 ```python
-from unify_llm.agent import WebhookServer, WebhookTrigger
+from src.agent import WebhookServer, WebhookTrigger
 
 # 创建 Webhook 服务器
 server = WebhookServer(host="0.0.0.0", port=5678)
@@ -160,7 +160,7 @@ await server.start()
 **测试 Webhook：**
 
 ```python
-from unify_llm.agent import WebhookClient
+from src.agent import WebhookClient
 
 client = WebhookClient(base_url="http://localhost:5678")
 
@@ -180,7 +180,7 @@ webhooks = await client.list_webhooks()
 类似 n8n 的执行历史功能，使用 SQLite 持久化存储：
 
 ```python
-from unify_llm.agent import ExecutionHistory, ExecutionData, ExecutionStatus
+from src.agent import ExecutionHistory, ExecutionData, ExecutionStatus
 from datetime import datetime
 
 # 初始化
@@ -250,7 +250,7 @@ unify_llm/agent/
 ## 🚀 完整的自动化示例
 
 ```python
-from unify_llm.agent import (
+from src.agent import (
     ScheduleTrigger, TriggerConfig, TriggerType,
     http_get, ExecutionHistory, ExecutionData, ExecutionStatus
 )
@@ -258,6 +258,7 @@ from datetime import datetime
 
 # 1. 初始化执行历史
 history = ExecutionHistory()
+
 
 # 2. 定义工作流逻辑
 async def monitor_github(event):
@@ -303,6 +304,7 @@ async def monitor_github(event):
         execution.error = str(e)
         history.save(execution)
         print(f"❌ Error: {e}")
+
 
 # 3. 创建定时触发器 (每小时执行)
 config = TriggerConfig(

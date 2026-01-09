@@ -4,7 +4,7 @@ import rootutils
 ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
 
 
-from unify_llm import settings
+from src import settings
 
 llm = OpenAI(api_key=settings.OPENAI_API_KEY)
 

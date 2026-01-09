@@ -5,8 +5,8 @@
 ### 创建简单 Agent
 
 ```python
-from unify_llm import UnifyLLM, Agent, AgentConfig, AgentExecutor, ToolRegistry
-from unify_llm.agent.builtin_tools import create_calculator_tool
+from src import UnifyLLM, Agent, AgentConfig, AgentExecutor, ToolRegistry
+from src.agent.builtin_tools import create_calculator_tool
 
 client = UnifyLLM(provider="openai", api_key="...")
 registry = ToolRegistry()
@@ -27,10 +27,12 @@ result = executor.run("What is 15 * 23?")
 ### 创建自定义工具
 
 ```python
-from unify_llm.agent import Tool, ToolParameter, ToolParameterType, ToolResult
+from src.agent import Tool, ToolParameter, ToolParameterType, ToolResult
+
 
 def my_tool(param: str) -> ToolResult:
     return ToolResult(success=True, output=f"Result: {param}")
+
 
 registry.register_function(
     name="my_tool",
@@ -42,7 +44,7 @@ registry.register_function(
 ### 创建工作流
 
 ```python
-from unify_llm.agent import Workflow, WorkflowConfig, WorkflowNode, NodeType
+from src.agent import Workflow, WorkflowConfig, WorkflowNode, NodeType
 
 config = WorkflowConfig(
     name="my_workflow",

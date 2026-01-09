@@ -1,6 +1,6 @@
 """Multi-provider comparison example."""
 
-from unify_llm import UnifyLLM
+from src import UnifyLLM
 
 
 def compare_providers():
@@ -150,8 +150,8 @@ def custom_provider_example():
 To register a custom provider:
 
 ```python
-from unify_llm import UnifyLLM
-from unify_llm.providers import BaseProvider
+from src import UnifyLLM
+from src.providers import BaseProvider
 
 class MyCustomProvider(BaseProvider):
     # ... implementation ...

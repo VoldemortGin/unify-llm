@@ -49,11 +49,11 @@ pip install -e ".[dev]"
 pytest
 
 # 代码格式化
-black unify_llm tests
-ruff check unify_llm tests
+black src tests
+ruff check src tests
 
 # 类型检查
-mypy unify_llm
+mypy src
 ```
 
 ## 代码规范
@@ -78,7 +78,7 @@ mypy unify_llm
 ### 提供商实现模板
 
 ```python
-from unify_llm.providers.base import BaseProvider
+from src.providers.base import BaseProvider
 
 
 class NewProvider(BaseProvider):

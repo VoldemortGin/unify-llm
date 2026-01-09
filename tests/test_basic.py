@@ -1,9 +1,13 @@
 """Basic tests for UnifyLLM."""
 
 import pytest
-from unify_llm import UnifyLLM
-from unify_llm.models import Message, ChatRequest
-from unify_llm.exceptions import InvalidRequestError
+import rootutils
+
+ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
+
+from src import UnifyLLM
+from src.models import Message, ChatRequest
+from src.core.exceptions import InvalidRequestError
 
 
 def test_client_initialization():
@@ -41,12 +45,7 @@ def test_chat_request_creation():
         Message(role="user", content="Hello"),
     ]
 
-    request = ChatRequest(
-        model="gpt-4",
-        messages=messages,
-        temperature=0.7,
-        max_tokens=100
-    )
+    request = ChatRequest(model="gpt-4", messages=messages, temperature=0.7, max_tokens=100)
 
     assert request.model == "gpt-4"
     assert len(request.messages) == 1
@@ -63,15 +62,13 @@ def test_chat_request_validation():
     # Invalid temperature should raise error
     with pytest.raises(ValueError):
         ChatRequest(
-            model="gpt-4",
-            messages=[Message(role="user", content="test")],
-            temperature=3.0  # > 2.0
+            model="gpt-4", messages=[Message(role="user", content="test")], temperature=3.0  # > 2.0
         )
 
 
 def test_provider_registration():
     """Test custom provider registration."""
-    from unify_llm.providers import BaseProvider
+    from src.providers import BaseProvider
 
     class CustomProvider(BaseProvider):
         def _get_headers(self):

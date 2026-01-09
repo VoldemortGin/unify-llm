@@ -18,8 +18,8 @@ UnifyLLM 的 AI Agent 框架提供了强大的自动化和工作流编排能力�
 ### 创建一个简单的 Agent
 
 ```python
-from unify_llm import UnifyLLM, Agent, AgentConfig, AgentExecutor, ToolRegistry
-from unify_llm.agent.builtin_tools import create_calculator_tool
+from src import UnifyLLM, Agent, AgentConfig, AgentExecutor, ToolRegistry
+from src.agent.builtin_tools import create_calculator_tool
 
 # 1. 初始化 LLM 客户端
 client = UnifyLLM(provider="openai", api_key="sk-...")
@@ -62,20 +62,20 @@ Agent 是一个自主的 AI 实体，能够：
 #### Agent 配置
 
 ```python
-from unify_llm.agent import AgentConfig, AgentType
+from src.agent import AgentConfig, AgentType
 
 config = AgentConfig(
-    name="my_agent",              # Agent 名称
-    agent_type=AgentType.TOOLS,   # Agent 类型
-    model="gpt-4",                 # 使用的模型
-    provider="openai",             # LLM 提供商
-    system_prompt="...",           # 系统提示词
-    temperature=0.7,               # 采样温度
-    max_tokens=1000,               # 最大生成 tokens
-    max_iterations=10,             # 最大迭代次数
-    enable_memory=True,            # 启用记忆
-    memory_window=10,              # 记忆窗口大小
-    tools=["tool1", "tool2"],      # 可用工具列表
+    name="my_agent",  # Agent 名称
+    agent_type=AgentType.TOOLS,  # Agent 类型
+    model="gpt-4",  # 使用的模型
+    provider="openai",  # LLM 提供商
+    system_prompt="...",  # 系统提示词
+    temperature=0.7,  # 采样温度
+    max_tokens=1000,  # 最大生成 tokens
+    max_iterations=10,  # 最大迭代次数
+    enable_memory=True,  # 启用记忆
+    memory_window=10,  # 记忆窗口大小
+    tools=["tool1", "tool2"],  # 可用工具列表
 )
 ```
 
@@ -86,7 +86,8 @@ config = AgentConfig(
 #### 创建自定义工具
 
 ```python
-from unify_llm.agent import Tool, ToolParameter, ToolParameterType, ToolResult
+from src.agent import Tool, ToolParameter, ToolParameterType, ToolResult
+
 
 def search_web(query: str, num_results: int = 5) -> ToolResult:
     """搜索网络（示例）"""
@@ -97,6 +98,7 @@ def search_web(query: str, num_results: int = 5) -> ToolResult:
         output=results,
         metadata={"query": query, "count": len(results)}
     )
+
 
 # 定义工具
 search_tool = Tool(
@@ -142,7 +144,7 @@ registry.register_function(
 #### ConversationMemory - 对话记忆
 
 ```python
-from unify_llm.agent import ConversationMemory
+from src.agent import ConversationMemory
 
 # 创建记忆（保留最近 10 条消息）
 memory = ConversationMemory(window_size=10)
@@ -167,7 +169,7 @@ memory.clear()
 用于多 Agent 协作：
 
 ```python
-from unify_llm.agent import SharedMemory
+from src.agent import SharedMemory
 
 shared = SharedMemory()
 
@@ -195,7 +197,7 @@ data = shared.to_dict()
 AgentExecutor 管理 Agent 的执行循环：
 
 ```python
-from unify_llm.agent import AgentExecutor
+from src.agent import AgentExecutor
 
 executor = AgentExecutor(
     agent=agent,
@@ -255,7 +257,7 @@ config = AgentConfig(
 根据条件将请求路由到不同的处理流程：
 
 ```python
-from unify_llm.agent import WorkflowNode, NodeType
+from src.agent import WorkflowNode, NodeType
 
 router_node = WorkflowNode(
     id="router",
@@ -303,7 +305,7 @@ workflow = Workflow(config=workflow_config, agents=agents)
 #### 1. Calculator (计算器)
 
 ```python
-from unify_llm.agent.builtin_tools import create_calculator_tool
+from src.agent.builtin_tools import create_calculator_tool
 
 registry.register(create_calculator_tool())
 
@@ -316,7 +318,7 @@ registry.register(create_calculator_tool())
 #### 2. String Tools (字符串工具)
 
 ```python
-from unify_llm.agent.builtin_tools import create_string_tools
+from src.agent.builtin_tools import create_string_tools
 
 for tool in create_string_tools():
     registry.register(tool)
@@ -331,7 +333,7 @@ for tool in create_string_tools():
 #### 3. Data Formatter (数据格式化)
 
 ```python
-from unify_llm.agent.builtin_tools import create_data_formatter_tool
+from src.agent.builtin_tools import create_data_formatter_tool
 
 registry.register(create_data_formatter_tool())
 
@@ -402,7 +404,7 @@ tool = Tool(
 ### 创建工作流
 
 ```python
-from unify_llm.agent import Workflow, WorkflowConfig, WorkflowNode, NodeType
+from src.agent import Workflow, WorkflowConfig, WorkflowNode, NodeType
 
 # 1. 定义节点
 nodes = [
