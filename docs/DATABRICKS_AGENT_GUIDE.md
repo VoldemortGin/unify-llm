@@ -30,7 +30,7 @@ export DATABRICKS_API_KEY="dapi..."
 ### 基础测试（不使用 Agent）
 
 ```python
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 # 方式 1: 使用环境变量
 client = UnifyLLM(
@@ -56,15 +56,15 @@ print(response.content)
 ### 使用 AI Agent
 
 ```python
-from src import UnifyLLM
-from src.agent import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import (
     Agent,
     AgentConfig,
     AgentType,
     AgentExecutor,
     ToolRegistry,
 )
-from src.agent.builtin_tools import create_calculator_tool
+from unify_llm.agent.builtin_tools import create_calculator_tool
 
 # 1. 初始化 Databricks 客户端
 client = UnifyLLM(
@@ -100,8 +100,8 @@ print(result.output)
 ### 使用 n8n 风格自动化
 
 ```python
-from src import UnifyLLM
-from src.agent import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import (
     Agent, AgentConfig, AgentExecutor, ToolRegistry,
     ScheduleTrigger, TriggerConfig, TriggerType,
     ExecutionHistory, ExecutionData, ExecutionStatus,

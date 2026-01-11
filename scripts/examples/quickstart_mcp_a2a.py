@@ -11,10 +11,10 @@ export DATABRICKS_BASE_URL="https://your-workspace.cloud.databricks.com"
 
 import asyncio
 import os
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig, AgentType
-from src.mcp import MCPServer, MCPServerConfig
-from src.a2a import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig, AgentType
+from unify_llm.mcp import MCPServer, MCPServerConfig
+from unify_llm.a2a import (
     A2AAgent,
     A2AAgentConfig,
     AgentCapability,

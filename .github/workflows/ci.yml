@@ -60,13 +60,13 @@ jobs:
         pip install -e ".[dev]"
 
     - name: Check code formatting with Black
-      run: black --check src tests
+      run: black --check unify_llm tests
 
     - name: Lint with Ruff
-      run: ruff check src tests
+      run: ruff check unify_llm tests
 
     - name: Type check with MyPy
-      run: mypy src
+      run: mypy unify_llm
       continue-on-error: true
 
   build:

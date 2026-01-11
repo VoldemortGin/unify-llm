@@ -5,7 +5,7 @@ This example demonstrates how to use the ByteDance provider with UnifyLLM.
 """
 
 import asyncio
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 # Set your ByteDance API key
 # Get it from: https://console.volcengine.com/ark

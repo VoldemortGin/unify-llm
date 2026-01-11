@@ -5,8 +5,8 @@ with sequential execution, similar to n8n's agent orchestration.
 """
 
 import os
-from src import UnifyLLM
-from src.agent import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import (
     Agent,
     AgentConfig,
     AgentExecutor,
@@ -17,7 +17,7 @@ from src.agent import (
     ToolRegistry,
     SharedMemory
 )
-from src.agent.builtin_tools import create_calculator_tool, create_string_tools
+from unify_llm.agent.builtin_tools import create_calculator_tool, create_string_tools
 
 
 def main():

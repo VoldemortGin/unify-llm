@@ -5,7 +5,7 @@ All 6 providers (OpenAI, Anthropic, Gemini, Ollama, Qwen, ByteDance)
 use the exact same interface!
 """
 
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 import asyncio
 
 
@@ -205,7 +205,7 @@ def message_format_examples():
     )
 
     # 2. Message object format
-    from src import Message
+    from unify_llm import Message
 
     response2 = client.invoke(
         messages=[

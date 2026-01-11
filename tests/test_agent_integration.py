@@ -18,7 +18,7 @@ def test_imports():
 
     try:
         # Core imports
-        from src.agent import (
+        from unify_llm.agent import (
             Agent, AgentConfig, AgentType,
             Tool, ToolRegistry, ToolResult,
             ConversationMemory, SharedMemory,
@@ -28,23 +28,23 @@ def test_imports():
         print("✅ Core modules imported successfully")
 
         # Advanced imports
-        from src.agent import (
+        from unify_llm.agent import (
             ParallelExecutor, ErrorHandler, AgentChain
         )
         print("✅ Advanced modules imported successfully")
 
         # Template imports
-        from src.agent import AgentTemplates
+        from unify_llm.agent import AgentTemplates
         print("✅ Template module imported successfully")
 
         # Visualization imports
-        from src.agent import (
+        from unify_llm.agent import (
             WorkflowVisualizer, ExecutionTracer, visualize_workflow
         )
         print("✅ Visualization modules imported successfully")
 
         # Monitoring imports
-        from src.agent import (
+        from unify_llm.agent import (
             PerformanceMonitor, ExecutionLogger, AgentMetrics
         )
         print("✅ Monitoring modules imported successfully")
@@ -63,7 +63,7 @@ def test_tool_creation():
     print("=" * 60)
 
     try:
-        from src.agent import Tool, ToolRegistry, ToolParameter, ToolParameterType, ToolResult
+        from unify_llm.agent import Tool, ToolRegistry, ToolParameter, ToolParameterType, ToolResult
 
         # Create a simple tool
         def add_numbers(a: int, b: int) -> ToolResult:
@@ -99,8 +99,8 @@ def test_builtin_tools():
     print("=" * 60)
 
     try:
-        from src.agent import ToolRegistry
-        from src.agent.builtin_tools import (
+        from unify_llm.agent import ToolRegistry
+        from unify_llm.agent.builtin_tools import (
             create_calculator_tool,
             create_string_tools,
             create_data_formatter_tool
@@ -140,7 +140,7 @@ def test_memory():
     print("=" * 60)
 
     try:
-        from src.agent import ConversationMemory, SharedMemory
+        from unify_llm.agent import ConversationMemory, SharedMemory
 
         # Test ConversationMemory
         memory = ConversationMemory(window_size=5)
@@ -175,7 +175,7 @@ def test_agent_templates():
     print("=" * 60)
 
     try:
-        from src.agent import AgentTemplates
+        from unify_llm.agent import AgentTemplates
 
         templates = [
             "research_assistant",
@@ -208,7 +208,7 @@ def test_workflow_creation():
     print("=" * 60)
 
     try:
-        from src.agent import WorkflowConfig, WorkflowNode, NodeType
+        from unify_llm.agent import WorkflowConfig, WorkflowNode, NodeType
 
         nodes = [
             WorkflowNode(
@@ -252,7 +252,7 @@ def test_visualization():
     print("=" * 60)
 
     try:
-        from src.agent import (
+        from unify_llm.agent import (
             Workflow, WorkflowConfig, WorkflowNode, NodeType,
             WorkflowVisualizer
         )
@@ -320,7 +320,7 @@ def test_monitoring():
     print("=" * 60)
 
     try:
-        from src.agent import PerformanceMonitor, ExecutionLogger
+        from unify_llm.agent import PerformanceMonitor, ExecutionLogger
 
         # Test PerformanceMonitor
         monitor = PerformanceMonitor()

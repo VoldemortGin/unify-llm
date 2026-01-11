@@ -8,16 +8,16 @@ This example demonstrates advanced capabilities:
 """
 
 import os
-from src import UnifyLLM
-from src.agent import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import (
     Agent,
     AgentExecutor,
     ToolRegistry,
 )
-from src.agent.templates import AgentTemplates
-from src.agent.advanced import ParallelExecutor, ErrorHandler, AgentChain
-from src.agent.builtin_tools import create_calculator_tool, create_string_tools
-from src.agent.extended_tools import create_datetime_tools, create_text_analysis_tools
+from unify_llm.agent.templates import AgentTemplates
+from unify_llm.agent.advanced import ParallelExecutor, ErrorHandler, AgentChain
+from unify_llm.agent.builtin_tools import create_calculator_tool, create_string_tools
+from unify_llm.agent.extended_tools import create_datetime_tools, create_text_analysis_tools
 
 
 def demo_parallel_execution():

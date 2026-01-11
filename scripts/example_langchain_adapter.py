@@ -6,7 +6,7 @@ LangChain-compatible usage across different providers.
 """
 
 import asyncio
-from src import LangChainAdapter
+from unify_llm import LangChainAdapter
 
 
 def compare_providers():

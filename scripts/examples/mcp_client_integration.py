@@ -7,10 +7,10 @@ allowing agents to use tools exposed by MCP servers.
 
 import asyncio
 import os
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig, AgentType
-from src.mcp import MCPClient, MCPClientConfig, StdioTransport
-from src.a2a import A2AAgent, A2AAgentConfig, AgentCapability, AgentRegistry
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig, AgentType
+from unify_llm.mcp import MCPClient, MCPClientConfig, StdioTransport
+from unify_llm.a2a import A2AAgent, A2AAgentConfig, AgentCapability, AgentRegistry
 
 
 class MCPIntegratedAgent:

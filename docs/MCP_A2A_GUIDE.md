@@ -32,7 +32,7 @@ MCP (Model Context Protocol) 允许 AI 代理通过标准化的方式暴露工�
 创建 MCP 服务器来暴露代理的能力：
 
 ```python
-from src.mcp import MCPServer, MCPServerConfig
+from unify_llm.mcp import MCPServer, MCPServerConfig
 
 # 创建服务器
 config = MCPServerConfig(
@@ -66,7 +66,7 @@ async def greeting_prompt(name: str) -> dict:
 
 
 # 启动服务器
-from src.mcp import StdioTransport
+from unify_llm.mcp import StdioTransport
 
 transport = StdioTransport()
 await server.start(transport)
@@ -77,7 +77,7 @@ await server.start(transport)
 连接到 MCP 服务器并使用其功能：
 
 ```python
-from src.mcp import MCPClient, MCPClientConfig, StdioTransport
+from unify_llm.mcp import MCPClient, MCPClientConfig, StdioTransport
 
 # 创建客户端
 config = MCPClientConfig(client_name="my-app")
@@ -116,7 +116,7 @@ MCP 支持多种传输方式：
 #### Stdio Transport (进程间通信)
 
 ```python
-from src.mcp import StdioTransport
+from unify_llm.mcp import StdioTransport
 
 transport = StdioTransport()
 await transport.connect()
@@ -125,7 +125,7 @@ await transport.connect()
 #### SSE Transport (Server-Sent Events)
 
 ```python
-from src.mcp import SSETransport
+from unify_llm.mcp import SSETransport
 
 transport = SSETransport(url="http://localhost:3000/sse")
 await transport.connect()
@@ -134,7 +134,7 @@ await transport.connect()
 #### WebSocket Transport
 
 ```python
-from src.mcp import WebSocketTransport
+from unify_llm.mcp import WebSocketTransport
 
 transport = WebSocketTransport(url="ws://localhost:3000/ws")
 await transport.connect()
@@ -151,9 +151,9 @@ A2A (Agent-to-Agent) Protocol 使多个 AI 代理能够相互通信和协作。
 将标准代理包装为 A2A 代理：
 
 ```python
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig
-from src.a2a import A2AAgent, A2AAgentConfig, AgentCapability
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig
+from unify_llm.a2a import A2AAgent, A2AAgentConfig, AgentCapability
 
 # 创建基础代理
 client = UnifyLLM(provider="databricks", api_key="...", base_url="...")
@@ -212,7 +212,7 @@ await a2a_agent.start()
 发现具有特定能力的其他代理：
 
 ```python
-from src.a2a import AgentRegistry, AgentDiscovery
+from unify_llm.a2a import AgentRegistry, AgentDiscovery
 
 # 创建共享注册表
 registry = AgentRegistry()
@@ -254,7 +254,7 @@ else:
 使用任务委托服务进行自动代理选择：
 
 ```python
-from src.a2a import TaskDelegation
+from unify_llm.a2a import TaskDelegation
 
 delegation = TaskDelegation(discovery)
 
@@ -280,7 +280,7 @@ results = await delegation.delegate_parallel(tasks)
 #### 顺序协作
 
 ```python
-from src.a2a import AgentCollaboration, CollaborationStrategy
+from unify_llm.a2a import AgentCollaboration, CollaborationStrategy
 
 # 创建顺序协作
 collab = AgentCollaboration(strategy=CollaborationStrategy.SEQUENTIAL)
@@ -339,7 +339,7 @@ print(f"Decision: {result['decision']}")
 使用共识构建器：
 
 ```python
-from src.a2a import ConsensusBuilder
+from unify_llm.a2a import ConsensusBuilder
 
 consensus = ConsensusBuilder(agents=[agent1, agent2, agent3])
 
@@ -365,7 +365,7 @@ export DATABRICKS_BASE_URL="https://your-workspace.cloud.databricks.com"
 ### 基础连接测试
 
 ```python
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 # 初始化客户端
 client = UnifyLLM(
@@ -407,7 +407,7 @@ python tests/test_mcp_a2a_databricks.py
 
 ```python
 import asyncio
-from src.mcp import MCPServer, MCPServerConfig, StdioTransport
+from unify_llm.mcp import MCPServer, MCPServerConfig, StdioTransport
 
 
 async def main():
@@ -439,9 +439,9 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig
-from src.a2a import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig
+from unify_llm.a2a import (
     A2AAgent, A2AAgentConfig, AgentCapability,
     AgentRegistry, AgentCollaboration, CollaborationStrategy
 )
@@ -517,10 +517,10 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig
-from src.mcp import MCPServer, MCPServerConfig
-from src.a2a import A2AAgent, A2AAgentConfig, AgentCapability
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig
+from unify_llm.mcp import MCPServer, MCPServerConfig
+from unify_llm.a2a import A2AAgent, A2AAgentConfig, AgentCapability
 
 
 async def main():

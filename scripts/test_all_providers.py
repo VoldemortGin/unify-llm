@@ -13,7 +13,7 @@ from typing import Optional
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 
 def test_provider_sync(

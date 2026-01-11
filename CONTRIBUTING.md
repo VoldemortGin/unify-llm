@@ -49,11 +49,11 @@ pip install -e ".[dev]"
 pytest
 
 # 代码格式化
-black src tests
-ruff check src tests
+black unify_llm tests
+ruff check unify_llm tests
 
 # 类型检查
-mypy src
+mypy unify_llm
 ```
 
 ## 代码规范
@@ -68,17 +68,17 @@ mypy src
 
 如果您想添加对新 LLM 提供商的支持：
 
-1. 在 `unifyllm/providers/` 下创建新文件，如 `newprovider.py`
+1. 在 `unify_llm/providers/` 下创建新文件，如 `newprovider.py`
 2. 继承 `BaseProvider` 类并实现所有抽象方法
-3. 在 `unifyllm/providers/__init__.py` 中导出新提供商
-4. 在 `unifyllm/client.py` 的 `_providers` 字典中注册
+3. 在 `unify_llm/providers/__init__.py` 中导出新提供商
+4. 在 `unify_llm/client.py` 的 `_providers` 字典中注册
 5. 添加测试用例
 6. 更新文档
 
 ### 提供商实现模板
 
 ```python
-from src.providers.base import BaseProvider
+from unify_llm.providers.base import BaseProvider
 
 
 class NewProvider(BaseProvider):

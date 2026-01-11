@@ -49,7 +49,7 @@ pip install -e .
 ### 基本用法
 
 ```python
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 # 初始化客户端
 client = UnifyLLM(
@@ -331,7 +331,7 @@ class Usage:
 - `ContentFilterError`: 内容被过滤
 
 ```python
-from src import UnifyLLM, AuthenticationError
+from unify_llm import UnifyLLM, AuthenticationError
 
 try:
     response = client.chat(...)
@@ -361,8 +361,8 @@ client = UnifyLLM(provider="openai")
 您可以注册自定义提供商：
 
 ```python
-from src import UnifyLLM
-from src.providers import BaseProvider
+from unify_llm import UnifyLLM
+from unify_llm.providers import BaseProvider
 
 
 class MyCustomProvider(BaseProvider):
@@ -444,14 +444,14 @@ pytest
 ### 代码格式化
 
 ```bash
-black src tests
-ruff check src tests
+black unify_llm tests
+ruff check unify_llm tests
 ```
 
 ### 类型检查
 
 ```bash
-mypy src
+mypy unify_llm
 ```
 
 ## AI Agent 功能 (🆕 New!)
@@ -461,9 +461,9 @@ UnifyLLM 现在支持强大的 AI Agent 功能，灵感来自 n8n 的工作流�
 ### 快速开始：创建一个简单的 Agent
 
 ```python
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig, AgentExecutor, ToolRegistry
-from src.agent.builtin_tools import create_calculator_tool
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig, AgentExecutor, ToolRegistry
+from unify_llm.agent.builtin_tools import create_calculator_tool
 
 # 初始化客户端
 client = UnifyLLM(provider="openai", api_key="sk-...")
@@ -503,7 +503,7 @@ print(result.output)
 - 内置工具：计算器、字符串处理、数据格式化等
 
 ```python
-from src.agent import Tool, ToolParameter, ToolParameterType, ToolResult
+from unify_llm.agent import Tool, ToolParameter, ToolParameterType, ToolResult
 
 
 def my_custom_tool(param1: str, param2: int) -> ToolResult:
@@ -525,7 +525,7 @@ registry.register_function(
 - **SharedMemory**: 多代理共享内存
 
 ```python
-from src.agent import ConversationMemory
+from unify_llm.agent import ConversationMemory
 
 memory = ConversationMemory(window_size=10)
 memory.add_user_message("Hello!")
@@ -536,7 +536,7 @@ memory.add_assistant_message("Hi! How can I help?")
 支持多代理协作的复杂工作流：
 
 ```python
-from src.agent import Workflow, WorkflowConfig, WorkflowNode, NodeType
+from unify_llm.agent import Workflow, WorkflowConfig, WorkflowNode, NodeType
 
 # 定义工作流：研究 -> 分析 -> 撰写
 workflow_config = WorkflowConfig(
@@ -643,7 +643,7 @@ UnifyLLM 提供了多种开箱即用的工具：
 使用预配置的 Agent 模板快速开始：
 
 ```python
-from src.agent import AgentTemplates, Agent
+from unify_llm.agent import AgentTemplates, Agent
 
 # 研究助手
 config = AgentTemplates.research_assistant()
@@ -669,7 +669,7 @@ config = AgentTemplates.task_planner()
 #### 1. 并行执行
 
 ```python
-from src.agent import ParallelExecutor
+from unify_llm.agent import ParallelExecutor
 
 parallel = ParallelExecutor(max_workers=3)
 results = parallel.execute_parallel(
@@ -682,7 +682,7 @@ results = parallel.execute_parallel(
 #### 2. 错误处理和重试
 
 ```python
-from src.agent import ErrorHandler
+from unify_llm.agent import ErrorHandler
 
 handler = ErrorHandler(max_retries=3, backoff_factor=2.0)
 result = handler.execute_with_retry(
@@ -695,7 +695,7 @@ result = handler.execute_with_retry(
 #### 3. Agent 链式调用
 
 ```python
-from src.agent import AgentChain
+from unify_llm.agent import AgentChain
 
 chain = AgentChain()
 chain.add_agent(researcher, researcher_exec)
@@ -708,7 +708,7 @@ result = chain.execute("Research AI trends")
 #### 4. 工作流可视化
 
 ```python
-from src.agent import WorkflowVisualizer
+from unify_llm.agent import WorkflowVisualizer
 
 viz = WorkflowVisualizer(workflow)
 
@@ -725,7 +725,7 @@ print(viz.to_json())
 #### 5. 性能监控
 
 ```python
-from src.agent import PerformanceMonitor
+from unify_llm.agent import PerformanceMonitor
 
 monitor = PerformanceMonitor()
 
@@ -758,7 +758,7 @@ UnifyLLM 现在支持 MCP (Model Context Protocol) 和 A2A (Agent-to-Agent) 协�
 使用 MCP 将代理的工具、资源和提示暴露为标准化服务：
 
 ```python
-from src.mcp import MCPServer, MCPServerConfig
+from unify_llm.mcp import MCPServer, MCPServerConfig
 
 # 创建 MCP 服务器
 server = MCPServer(MCPServerConfig(server_name="my-agent"))
@@ -791,9 +791,9 @@ async def greeting_prompt(name: str) -> dict:
 使用 A2A 协议让多个代理相互通信和协作：
 
 ```python
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig
-from src.a2a import A2AAgent, A2AAgentConfig, AgentCapability, AgentRegistry
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig
+from unify_llm.a2a import A2AAgent, A2AAgentConfig, AgentCapability, AgentRegistry
 
 # 创建共享注册表
 registry = AgentRegistry()
@@ -824,7 +824,7 @@ a2a_agent = A2AAgent(
 await a2a_agent.start()
 
 # 发现其他代理
-from src.a2a import AgentDiscovery
+from unify_llm.a2a import AgentDiscovery
 
 discovery = AgentDiscovery(registry)
 agents = await discovery.discover(capabilities=["solve_math"])
@@ -842,7 +842,7 @@ result = await a2a_agent.delegate_task(
 使用不同策略进行多代理协作：
 
 ```python
-from src.a2a import AgentCollaboration, CollaborationStrategy
+from unify_llm.a2a import AgentCollaboration, CollaborationStrategy
 
 # 顺序协作 (sequential)
 collab = AgentCollaboration(strategy=CollaborationStrategy.SEQUENTIAL)

@@ -6,8 +6,8 @@ This example shows how to create custom tools for specific tasks.
 import os
 import requests
 from typing import List, Dict, Any
-from src import UnifyLLM
-from src.agent import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import (
     Agent,
     AgentConfig,
     AgentExecutor,

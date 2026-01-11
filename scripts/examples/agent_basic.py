@@ -4,15 +4,15 @@ This example demonstrates how to create a simple AI agent with tool calling capa
 """
 
 import os
-from src import UnifyLLM
-from src.agent import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import (
     Agent,
     AgentConfig,
     AgentExecutor,
     ToolRegistry,
     ConversationMemory
 )
-from src.agent.builtin_tools import (
+from unify_llm.agent.builtin_tools import (
     create_calculator_tool,
     create_string_tools,
     create_data_formatter_tool

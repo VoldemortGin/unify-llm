@@ -1,11 +1,11 @@
 """Comprehensive unit tests to improve code coverage.
 
 This test suite targets modules with low coverage:
-- src/utils.py (29%)
-- src/client.py (65%)
-- src/providers/base.py (51%)
-- src/agent/tools.py (58%)
-- src/agent/executor.py (18%)
+- unify_llm/utils.py (29%)
+- unify_llm/client.py (65%)
+- unify_llm/providers/base.py (51%)
+- unify_llm/agent/tools.py (58%)
+- unify_llm/agent/executor.py (18%)
 
 All tests use mocks and do NOT call real LLM APIs.
 """
@@ -20,34 +20,34 @@ import rootutils
 
 ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
 
-from src import UnifyLLM
-from src.models import (
+from unify_llm import UnifyLLM
+from unify_llm.models import (
     Message,
     ChatRequest,
     ChatResponse,
     ChatResponseChoice,
     ProviderConfig,
 )
-from src.core.exceptions import (
+from unify_llm.core.exceptions import (
     InvalidRequestError,
     APIError,
     AuthenticationError,
     RateLimitError,
 )
-from src.agent.tools import (
+from unify_llm.agent.tools import (
     Tool,
     ToolRegistry,
     ToolParameter,
     ToolParameterType,
     ToolResult,
 )
-from src.agent.base import Agent, AgentConfig
-from src.agent.executor import AgentExecutor, ExecutionResult
-from src.agent.memory import ConversationMemory
+from unify_llm.agent.base import Agent, AgentConfig
+from unify_llm.agent.executor import AgentExecutor, ExecutionResult
+from unify_llm.agent.memory import ConversationMemory
 
 
 # ============================================================================
-# Tests for src/utils.py
+# Tests for unify_llm/utils.py
 # ============================================================================
 
 
@@ -56,7 +56,7 @@ class TestUtils:
 
     def test_get_model_name_mapping_path(self):
         """Test getting model name mapping path."""
-        from src.utils import get_model_name_mapping_path
+        from unify_llm.utils import get_model_name_mapping_path
 
         path = get_model_name_mapping_path()
         assert isinstance(path, Path)
@@ -64,7 +64,7 @@ class TestUtils:
 
     def test_load_model_name_mapping(self):
         """Test loading model name mapping."""
-        from src.utils import load_model_name_mapping
+        from unify_llm.utils import load_model_name_mapping
 
         mapping = load_model_name_mapping()
         assert isinstance(mapping, dict)
@@ -73,7 +73,7 @@ class TestUtils:
 
     def test_load_model_name_mapping_caching(self):
         """Test that model name mapping is cached."""
-        from src.utils import load_model_name_mapping
+        from unify_llm.utils import load_model_name_mapping
 
         # Load once
         mapping1 = load_model_name_mapping()
@@ -84,24 +84,24 @@ class TestUtils:
 
     def test_load_model_name_mapping_nonexistent_file(self):
         """Test loading when mapping file doesn't exist."""
-        from src.utils import load_model_name_mapping
+        from unify_llm.utils import load_model_name_mapping
 
-        with patch("src.utils.get_model_name_mapping_path") as mock_path:
+        with patch("unify_llm.utils.get_model_name_mapping_path") as mock_path:
             mock_path.return_value = Path("/nonexistent/path/model_name_mapping.yaml")
             # Clear cache
-            import src.utils
+            import unify_llm.utils
 
-            src.utils._model_name_mapping = None
+            unify_llm.utils._model_name_mapping = None
 
             mapping = load_model_name_mapping()
             assert mapping == {}
 
     def test_resolve_model_name_openrouter(self):
         """Test resolving model name for OpenRouter."""
-        from src.utils import resolve_model_name
+        from unify_llm.utils import resolve_model_name
 
         # Mock the mapping
-        with patch("src.utils.load_model_name_mapping") as mock_load:
+        with patch("unify_llm.utils.load_model_name_mapping") as mock_load:
             mock_load.return_value = {
                 "claude-4.5": "anthropic/claude-sonnet-4.5",
                 "gpt5": "openai/gpt-5",
@@ -119,7 +119,7 @@ class TestUtils:
 
     def test_resolve_model_name_other_providers(self):
         """Test that other providers don't use mapping."""
-        from src.utils import resolve_model_name
+        from unify_llm.utils import resolve_model_name
 
         # For non-OpenRouter providers, should return original
         result = resolve_model_name("openai", "gpt-4-turbo")
@@ -130,11 +130,11 @@ class TestUtils:
 
     def test_reload_model_name_mapping(self):
         """Test reloading model name mapping."""
-        from src.utils import reload_model_name_mapping
-        import src.utils
+        from unify_llm.utils import reload_model_name_mapping
+        import unify_llm.utils
 
         # Set cache to something
-        src.utils._model_name_mapping = {"test": "value"}
+        unify_llm.utils._model_name_mapping = {"test": "value"}
 
         # Reload should clear cache and reload
         mapping = reload_model_name_mapping()
@@ -142,7 +142,7 @@ class TestUtils:
 
     def test_get_api_key_from_env_openai(self):
         """Test getting OpenAI API key from environment."""
-        from src.utils import get_api_key_from_env
+        from unify_llm.utils import get_api_key_from_env
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-openai-key"}):
             key = get_api_key_from_env("openai")
@@ -150,7 +150,7 @@ class TestUtils:
 
     def test_get_api_key_from_env_anthropic(self):
         """Test getting Anthropic API key from environment."""
-        from src.utils import get_api_key_from_env
+        from unify_llm.utils import get_api_key_from_env
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-anthropic-key"}):
             key = get_api_key_from_env("anthropic")
@@ -158,7 +158,7 @@ class TestUtils:
 
     def test_get_api_key_from_env_gemini(self):
         """Test getting Gemini API key from environment."""
-        from src.utils import get_api_key_from_env
+        from unify_llm.utils import get_api_key_from_env
 
         # Test GEMINI_API_KEY
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-gemini-key"}):
@@ -172,14 +172,14 @@ class TestUtils:
 
     def test_get_api_key_from_env_ollama(self):
         """Test Ollama doesn't need API key."""
-        from src.utils import get_api_key_from_env
+        from unify_llm.utils import get_api_key_from_env
 
         key = get_api_key_from_env("ollama")
         assert key is None
 
     def test_get_api_key_from_env_not_found(self):
         """Test when API key is not in environment."""
-        from src.utils import get_api_key_from_env
+        from unify_llm.utils import get_api_key_from_env
 
         with patch.dict(os.environ, {}, clear=True):
             key = get_api_key_from_env("openai")
@@ -187,7 +187,7 @@ class TestUtils:
 
     def test_estimate_tokens(self):
         """Test token estimation."""
-        from src.utils import estimate_tokens
+        from unify_llm.utils import estimate_tokens
 
         # Empty string
         assert estimate_tokens("") == 0
@@ -204,14 +204,14 @@ class TestUtils:
 
     def test_truncate_messages_empty(self):
         """Test truncating empty message list."""
-        from src.utils import truncate_messages
+        from unify_llm.utils import truncate_messages
 
         result = truncate_messages([], max_tokens=100)
         assert result == []
 
     def test_truncate_messages_within_limit(self):
         """Test truncating when within limit."""
-        from src.utils import truncate_messages
+        from unify_llm.utils import truncate_messages
 
         messages = [
             {"role": "user", "content": "Hello"},
@@ -225,7 +225,7 @@ class TestUtils:
 
     def test_truncate_messages_preserve_system(self):
         """Test truncating while preserving system messages."""
-        from src.utils import truncate_messages
+        from unify_llm.utils import truncate_messages
 
         messages = [
             {"role": "system", "content": "You are helpful"},
@@ -244,7 +244,7 @@ class TestUtils:
 
     def test_truncate_messages_no_preserve_system(self):
         """Test truncating without preserving system messages."""
-        from src.utils import truncate_messages
+        from unify_llm.utils import truncate_messages
 
         messages = [
             {"role": "system", "content": "You are helpful"},
@@ -258,7 +258,7 @@ class TestUtils:
 
     def test_format_provider_error(self):
         """Test formatting provider errors."""
-        from src.utils import format_provider_error
+        from unify_llm.utils import format_provider_error
 
         error = ValueError("Something went wrong")
         formatted = format_provider_error(error, "openai")
@@ -269,7 +269,7 @@ class TestUtils:
 
 
 # ============================================================================
-# Tests for src/client.py
+# Tests for unify_llm/client.py
 # ============================================================================
 
 
@@ -299,7 +299,7 @@ class TestUnifyLLMClient:
 
     def test_register_provider(self):
         """Test registering a custom provider."""
-        from src.providers.base import BaseProvider
+        from unify_llm.providers.base import BaseProvider
 
         class TestProvider(BaseProvider):
             def _get_headers(self):
@@ -345,7 +345,7 @@ class TestUnifyLLMClient:
         with pytest.raises(InvalidRequestError):
             UnifyLLM.register_provider("invalid", NotAProvider)
 
-    @patch("src.providers.openai.OpenAIProvider.chat")
+    @patch("unify_llm.providers.openai.OpenAIProvider.chat")
     def test_chat_with_dict_messages(self, mock_chat):
         """Test chat with dict messages."""
         mock_response = ChatResponse(
@@ -369,7 +369,7 @@ class TestUnifyLLMClient:
         assert response.content == "Hello!"
         mock_chat.assert_called_once()
 
-    @patch("src.providers.openai.OpenAIProvider.chat")
+    @patch("unify_llm.providers.openai.OpenAIProvider.chat")
     def test_chat_with_message_objects(self, mock_chat):
         """Test chat with Message objects."""
         mock_response = ChatResponse(
@@ -392,7 +392,7 @@ class TestUnifyLLMClient:
 
         assert response.content == "Response"
 
-    @patch("src.providers.openai.OpenAIProvider.chat")
+    @patch("unify_llm.providers.openai.OpenAIProvider.chat")
     def test_chat_with_tools(self, mock_chat):
         """Test chat with tools."""
         mock_response = ChatResponse(
@@ -424,7 +424,7 @@ class TestUnifyLLMClient:
 
         assert response.content == "Used tool"
 
-    @patch("src.providers.openai.OpenAIProvider.achat")
+    @patch("unify_llm.providers.openai.OpenAIProvider.achat")
     @pytest.mark.asyncio
     async def test_achat(self, mock_achat):
         """Test async chat."""
@@ -448,10 +448,10 @@ class TestUnifyLLMClient:
 
         assert response.content == "Async response"
 
-    @patch("src.providers.openai.OpenAIProvider.chat_stream")
+    @patch("unify_llm.providers.openai.OpenAIProvider.chat_stream")
     def test_chat_stream(self, mock_stream):
         """Test streaming chat."""
-        from src.models import StreamChunk, StreamChoiceDelta, MessageDelta
+        from unify_llm.models import StreamChunk, StreamChoiceDelta, MessageDelta
 
         mock_chunks = [
             StreamChunk(
@@ -487,11 +487,11 @@ class TestUnifyLLMClient:
         assert len(chunks) == 2
         assert chunks[0].content == "Hello"
 
-    @patch("src.providers.openai.OpenAIProvider.achat_stream")
+    @patch("unify_llm.providers.openai.OpenAIProvider.achat_stream")
     @pytest.mark.asyncio
     async def test_achat_stream(self, mock_stream):
         """Test async streaming chat."""
-        from src.models import StreamChunk, StreamChoiceDelta, MessageDelta
+        from unify_llm.models import StreamChunk, StreamChoiceDelta, MessageDelta
 
         async def async_generator():
             yield StreamChunk(
@@ -531,7 +531,7 @@ class TestUnifyLLMClient:
 
 
 # ============================================================================
-# Tests for src/providers/base.py
+# Tests for unify_llm/providers/base.py
 # ============================================================================
 
 
@@ -540,7 +540,7 @@ class TestBaseProvider:
 
     def test_provider_initialization(self):
         """Test provider initialization."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
 
         config = ProviderConfig(api_key="test-key", timeout=30.0)
         provider = OpenAIProvider(config)
@@ -552,7 +552,7 @@ class TestBaseProvider:
 
     def test_provider_context_manager(self):
         """Test provider as async context manager."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
 
         config = ProviderConfig(api_key="test-key")
         provider = OpenAIProvider(config)
@@ -564,7 +564,7 @@ class TestBaseProvider:
     @pytest.mark.asyncio
     async def test_provider_aexit(self):
         """Test provider async exit."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
 
         config = ProviderConfig(api_key="test-key")
         provider = OpenAIProvider(config)
@@ -574,7 +574,7 @@ class TestBaseProvider:
 
     def test_chat_with_stream_raises_error(self):
         """Test that chat() with stream=True raises error."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
 
         config = ProviderConfig(api_key="test-key")
         provider = OpenAIProvider(config)
@@ -591,7 +591,7 @@ class TestBaseProvider:
     @pytest.mark.asyncio
     async def test_achat_with_stream_raises_error(self):
         """Test that achat() with stream=True raises error."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
 
         config = ProviderConfig(api_key="test-key")
         provider = OpenAIProvider(config)
@@ -605,7 +605,7 @@ class TestBaseProvider:
 
     def test_handle_http_error_401(self):
         """Test handling 401 authentication error."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
         import httpx
 
         config = ProviderConfig(api_key="test-key")
@@ -624,7 +624,7 @@ class TestBaseProvider:
 
     def test_handle_http_error_429(self):
         """Test handling 429 rate limit error."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
         import httpx
 
         config = ProviderConfig(api_key="test-key")
@@ -646,7 +646,7 @@ class TestBaseProvider:
 
     def test_handle_http_error_400(self):
         """Test handling 400 bad request error."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
         import httpx
 
         config = ProviderConfig(api_key="test-key")
@@ -663,7 +663,7 @@ class TestBaseProvider:
 
     def test_handle_http_error_500(self):
         """Test handling 500 server error."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
         import httpx
 
         config = ProviderConfig(api_key="test-key")
@@ -682,7 +682,7 @@ class TestBaseProvider:
 
     def test_handle_http_error_non_json_response(self):
         """Test handling error with non-JSON response."""
-        from src.providers.openai import OpenAIProvider
+        from unify_llm.providers.openai import OpenAIProvider
         import httpx
 
         config = ProviderConfig(api_key="test-key")
@@ -702,7 +702,7 @@ class TestBaseProvider:
 
 
 # ============================================================================
-# Tests for src/agent/tools.py
+# Tests for unify_llm/agent/tools.py
 # ============================================================================
 
 
@@ -1022,7 +1022,7 @@ class TestTools:
 
 
 # ============================================================================
-# Tests for src/agent/executor.py
+# Tests for unify_llm/agent/executor.py
 # ============================================================================
 
 

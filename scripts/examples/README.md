@@ -153,9 +153,9 @@ Use `mcp_client_integration.py` as a template to connect your agents to external
 ### Adding Your Own Agents
 
 ```python
-from src import UnifyLLM
-from src.agent import Agent, AgentConfig
-from src.a2a import A2AAgent, A2AAgentConfig, AgentCapability
+from unify_llm import UnifyLLM
+from unify_llm.agent import Agent, AgentConfig
+from unify_llm.a2a import A2AAgent, A2AAgentConfig, AgentCapability
 
 # Create your specialized agent
 client = UnifyLLM(provider="databricks", ...)
@@ -185,7 +185,7 @@ async def handle_my_skill(input_data):
 ### Creating Custom MCP Tools
 
 ```python
-from src.mcp import MCPServer, MCPServerConfig
+from unify_llm.mcp import MCPServer, MCPServerConfig
 
 server = MCPServer(MCPServerConfig(server_name="my-tools"))
 

@@ -19,9 +19,9 @@ import os
 from typing import Dict, Any
 from datetime import datetime
 
-from src import UnifyLLM, MessageBus, MessageBusConfig
-from src.agent import Agent, AgentConfig, AgentType
-from src.a2a import (
+from unify_llm import UnifyLLM, MessageBus, MessageBusConfig
+from unify_llm.agent import Agent, AgentConfig, AgentType
+from unify_llm.a2a import (
     A2AAgent,
     A2AAgentConfig,
     AgentCapability,

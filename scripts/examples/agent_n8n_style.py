@@ -17,7 +17,7 @@ Use case: Automated GitHub issue tracker that:
 
 import asyncio
 from datetime import datetime
-from src.agent import (
+from unify_llm.agent import (
     # Triggers
     ScheduleTrigger,
     IntervalTrigger,

@@ -18,8 +18,8 @@ import rootutils
 
 ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
 
-from src import UnifyLLM
-from src.a2a import (
+from unify_llm import UnifyLLM
+from unify_llm.a2a import (
     A2AAgent,
     A2AAgentConfig,
     AgentRegistry,
@@ -28,8 +28,8 @@ from src.a2a import (
     CollaborationStrategy,
     AgentCapability,
 )
-from src.agent import Agent, AgentConfig, AgentType
-from src.mcp import MCPServer, MCPServerConfig
+from unify_llm.agent import Agent, AgentConfig, AgentType
+from unify_llm.mcp import MCPServer, MCPServerConfig
 
 
 # Test 1: Basic Databricks connection

@@ -10,7 +10,7 @@ import os
 import json
 from pathlib import Path
 from typing import Dict, Any
-from src.mcp import MCPServer, MCPServerConfig, StdioTransport
+from unify_llm.mcp import MCPServer, MCPServerConfig, StdioTransport
 
 
 async def main():

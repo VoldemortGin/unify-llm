@@ -1,6 +1,6 @@
 """Basic usage example for UnifyLLM."""
 
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 # Example 1: OpenAI
 print("=" * 50)

@@ -1,7 +1,7 @@
 """Async usage example for UnifyLLM."""
 
 import asyncio
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 
 async def example1_async_chat():

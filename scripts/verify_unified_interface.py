@@ -12,9 +12,9 @@ import inspect
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src import UnifyLLM
-from src.providers.base import BaseProvider
-from src.client import UnifyLLM as Client
+from unify_llm import UnifyLLM
+from unify_llm.providers.base import BaseProvider
+from unify_llm.client import UnifyLLM as Client
 
 
 def check_provider_registration():
@@ -222,7 +222,7 @@ Additional Methods (Full Response):
 
 Usage Example:
     ```python
-    from src import UnifyLLM
+    from unify_llm import UnifyLLM
 
     # Initialize with any provider
     client = UnifyLLM(provider="openai")  # or "anthropic", "gemini", etc.

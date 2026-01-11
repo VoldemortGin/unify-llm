@@ -8,8 +8,8 @@ for the AI Agent system with n8n-style automation features.
 import asyncio
 import os
 from datetime import datetime
-from src import UnifyLLM
-from src.agent import (
+from unify_llm import UnifyLLM
+from unify_llm.agent import (
     # Core Agent
     Agent,
     AgentConfig,
@@ -73,7 +73,7 @@ async def test_basic_agent_with_databricks():
 
     # Create Agent with tools
     print("\n\nCreating Agent with calculator tool...")
-    from src.agent.builtin_tools import create_calculator_tool
+    from unify_llm.agent.builtin_tools import create_calculator_tool
 
     registry = ToolRegistry()
     registry.register(create_calculator_tool())
@@ -176,7 +176,7 @@ async def test_databricks_with_triggers():
     history = ExecutionHistory(db_path="databricks_test_executions.db")
 
     # Create agent
-    from src.agent.builtin_tools import create_calculator_tool
+    from unify_llm.agent.builtin_tools import create_calculator_tool
     registry = ToolRegistry()
     registry.register(create_calculator_tool())
 
@@ -291,7 +291,7 @@ async def test_databricks_with_template():
     print(f"  Tools: {config.tools}")
 
     # Create and run agent
-    from src.agent.builtin_tools import create_string_tools
+    from unify_llm.agent.builtin_tools import create_string_tools
     registry = ToolRegistry()
     for tool in create_string_tools():
         registry.register(tool)

@@ -5,9 +5,9 @@ import rootutils
 
 ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
 
-from src import UnifyLLM
-from src.models import Message, ChatRequest
-from src.core.exceptions import InvalidRequestError
+from unify_llm import UnifyLLM
+from unify_llm.models import Message, ChatRequest
+from unify_llm.core.exceptions import InvalidRequestError
 
 
 def test_client_initialization():
@@ -68,7 +68,7 @@ def test_chat_request_validation():
 
 def test_provider_registration():
     """Test custom provider registration."""
-    from src.providers import BaseProvider
+    from unify_llm.providers import BaseProvider
 
     class CustomProvider(BaseProvider):
         def _get_headers(self):

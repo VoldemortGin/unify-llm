@@ -31,15 +31,15 @@ import rootutils
 
 ROOT_DIR = rootutils.setup_root(os.getcwd(), indicator=".project-root", pythonpath=True)
 
-from src.client import UnifyLLM
-from src.core.config import settings
-from src.agent.base import Agent, AgentConfig, AgentType
-from src.agent.executor import AgentExecutor
-from src.agent.memory import ConversationMemory, SharedMemory
-from src.agent.tools import Tool, ToolParameter, ToolParameterType, ToolRegistry, ToolResult
-from src.a2a.protocol import AgentCapability
-from src.a2a.agent_comm import A2AAgent, A2AAgentConfig, AgentRegistry
-from src.a2a.message_bus import MessageBus, MessageBusConfig
+from unify_llm.client import UnifyLLM
+from unify_llm.core.config import settings
+from unify_llm.agent.base import Agent, AgentConfig, AgentType
+from unify_llm.agent.executor import AgentExecutor
+from unify_llm.agent.memory import ConversationMemory, SharedMemory
+from unify_llm.agent.tools import Tool, ToolParameter, ToolParameterType, ToolRegistry, ToolResult
+from unify_llm.a2a.protocol import AgentCapability
+from unify_llm.a2a.agent_comm import A2AAgent, A2AAgentConfig, AgentRegistry
+from unify_llm.a2a.message_bus import MessageBus, MessageBusConfig
 
 
 # ============================================================================

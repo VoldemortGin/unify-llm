@@ -5,7 +5,7 @@ This example demonstrates how to use the Qwen provider with UnifyLLM.
 """
 
 import asyncio
-from src import UnifyLLM
+from unify_llm import UnifyLLM
 
 # Set your Qwen API key
 # Get it from: https://dashscope.console.aliyun.com/

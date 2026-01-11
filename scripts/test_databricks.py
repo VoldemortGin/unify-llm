@@ -7,8 +7,8 @@ import rootutils
 
 ROOT_DIR = rootutils.setup_root(os.getcwd(), indicator=".project-root", pythonpath=True)
 
-from src.client import UnifyLLM
-from src.core.config import settings
+from unify_llm.client import UnifyLLM
+from unify_llm.core.config import settings
 
 
 def main():
