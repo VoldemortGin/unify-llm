@@ -12,9 +12,30 @@ import os
 import sys
 from pathlib import Path
 
-import rootutils
+def _find_project_root() -> Path | None:
+    """
+    Try to find project root directory.
+    Works in both development mode (with .project-root) and installed mode.
+    """
+    # 1. Check environment variable
+    if root_env := os.environ.get("UNIFY_LLM_ROOT"):
+        root_path = Path(root_env)
+        if root_path.exists():
+            return root_path
 
-ROOT_DIR = rootutils.setup_root(search_from=os.getcwd(), indicator=['.project-root'], pythonpath=True)
+    # 2. Try rootutils (development mode)
+    try:
+        import rootutils
+
+        return rootutils.find_root(search_from=os.getcwd(), indicator=[".project-root"])
+    except (ImportError, FileNotFoundError):
+        pass
+
+    # 3. Fallback to current working directory
+    return Path.cwd()
+
+
+ROOT_DIR = _find_project_root()
 
 
 class UTF8StreamHandler(logging.StreamHandler):

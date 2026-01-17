@@ -12,27 +12,66 @@ import os
 from pathlib import Path
 from typing import Any
 
-import rootutils
 import yaml
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Setup root directory
-ROOT_DIR = rootutils.setup_root(
-    search_from=os.getcwd(), indicator=[".project-root"], pythonpath=True
-)
+
+def _find_project_root() -> Path | None:
+    """
+    Try to find project root directory.
+    Works in both development mode (with .project-root) and installed mode.
+    """
+    # 1. Check environment variable
+    if root_env := os.environ.get("UNIFY_LLM_ROOT"):
+        root_path = Path(root_env)
+        if root_path.exists():
+            return root_path
+
+    # 2. Try rootutils (development mode)
+    try:
+        import rootutils
+
+        return rootutils.find_root(search_from=os.getcwd(), indicator=[".project-root"])
+    except (ImportError, FileNotFoundError):
+        pass
+
+    # 3. Check current working directory for .env or configs/
+    cwd = Path.cwd()
+    if (cwd / ".env").exists() or (cwd / "configs").exists():
+        return cwd
+
+    return None
+
+
+# Setup root directory (may be None in installed mode)
+ROOT_DIR = _find_project_root()
 
 # Load .env file if exists
-env_file = ROOT_DIR / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
+if ROOT_DIR:
+    env_file = ROOT_DIR / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+else:
+    # Try loading from current directory or user home
+    for env_path in [Path.cwd() / ".env", Path.home() / ".unify_llm" / ".env"]:
+        if env_path.exists():
+            load_dotenv(env_path)
+            break
 
 # Load optional YAML config
-CONFIG_PATH = ROOT_DIR / "configs" / "config.yaml"
 YAML_CONFIG: dict[str, Any] = {}
-if CONFIG_PATH.exists():
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        YAML_CONFIG = yaml.safe_load(f) or {}
+config_paths = [
+    Path(os.environ.get("UNIFY_LLM_CONFIG", "")) if os.environ.get("UNIFY_LLM_CONFIG") else None,
+    ROOT_DIR / "configs" / "config.yaml" if ROOT_DIR else None,
+    Path.cwd() / "configs" / "config.yaml",
+    Path.home() / ".unify_llm" / "config.yaml",
+]
+for config_path in config_paths:
+    if config_path and config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            YAML_CONFIG = yaml.safe_load(f) or {}
+        break
 
 
 class Settings(BaseSettings):
@@ -86,8 +125,8 @@ class Settings(BaseSettings):
         # Apply YAML config values for unset fields
         self._apply_yaml_defaults()
 
-        # Set root directory
-        self.root_dir = str(ROOT_DIR)
+        # Set root directory (may be None in installed mode)
+        self.root_dir = str(ROOT_DIR) if ROOT_DIR else str(Path.cwd())
 
     def _apply_yaml_defaults(self) -> None:
         """Apply default values from YAML config for fields that are not set."""

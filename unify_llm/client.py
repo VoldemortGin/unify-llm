@@ -5,10 +5,6 @@ from __future__ import annotations
 
 from typing import AsyncIterator, Dict, Iterator, List, Optional, Type, Union
 
-import rootutils
-
-ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
-
 from unify_llm.core.exceptions import InvalidRequestError
 from unify_llm.models import (
     ChatRequest,

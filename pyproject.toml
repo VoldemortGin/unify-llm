@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unify-llm"
-version = "0.1.0"
+version = "0.1.1"
 description = "A unified interface for calling various Large Language Model APIs"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -31,7 +31,6 @@ dependencies = [
     "typing-extensions>=4.5.0",
     "python-dotenv>=1.2.1",
     "pyyaml>=6.0.3",
-    "rootutils>=1.0.7",
     "pydantic-settings>=2.11.0",
     # n8n-style agent dependencies
     "croniter>=2.0.0",  # For schedule triggers
@@ -48,6 +47,7 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "types-PyYAML>=6.0.0",
+    "rootutils>=1.0.7",  # For development root detection
 ]
 
 [project.urls]

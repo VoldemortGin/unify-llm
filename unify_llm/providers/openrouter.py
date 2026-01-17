@@ -3,10 +3,6 @@
 
 from __future__ import annotations
 
-import rootutils
-
-ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
-
 from unify_llm.providers.openai import OpenAIProvider
 
 
