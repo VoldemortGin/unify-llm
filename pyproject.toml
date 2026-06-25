@@ -1,53 +1,46 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "unify-llm"
 version = "0.1.1"
 description = "A unified interface for calling various Large Language Model APIs"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 license = {text = "MIT"}
-authors = [
-    {name = "UnifyLLM Team"}
-]
+authors = [{name = "UnifyLLM Team"}]
 keywords = ["llm", "openai", "anthropic", "gemini", "ollama", "unified-api"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 dependencies = [
     "pydantic>=2.0.0",
+    "pydantic-settings>=2.11.0",
     "httpx>=0.24.0",
     "tenacity>=8.0.0",
     "typing-extensions>=4.5.0",
-    "python-dotenv>=1.2.1",
     "pyyaml>=6.0.3",
-    "pydantic-settings>=2.11.0",
-    # n8n-style agent dependencies
-    "croniter>=2.0.0",  # For schedule triggers
-    "fastapi>=0.110.0",  # For webhook server
-    "uvicorn>=0.27.0",  # For webhook server
+    "python-dotenv>=1.2.1",
+    "beartype>=0.18.0",
 ]
 
 [project.optional-dependencies]
+# 未来网关/调度才需要的死重;核心不该拉,装了才用。
+agent = ["croniter>=2.0.0"]
+gateway = ["fastapi>=0.110.0", "uvicorn>=0.27.0"]
+
+[dependency-groups]
+# 开发工具走 PEP 735 group:uv `sync` 默认安装、`uv run` 默认保留
+# (extra 在 `uv run` 下会被默认 sync 移除,group 不会),比 extra 更稳。
 dev = [
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
-    "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
-    "types-PyYAML>=6.0.0",
-    "rootutils>=1.0.7",  # For development root detection
+    "hypothesis>=6.0.0",
 ]
 
 [project.urls]
@@ -55,30 +48,79 @@ Homepage = "https://github.com/unifyllm/unifyllm"
 Documentation = "https://unifyllm.readthedocs.io"
 Repository = "https://github.com/unifyllm/unifyllm"
 
-[tool.setuptools.packages.find]
-include = ["unify_llm*"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.black]
-line-length = 100
-target-version = ["py39"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/unify_llm"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py313"
+src = ["src", "tests"]
+# ── RATCHET ──: 存量模块/测试/脚本尚未现代化(from __future__ + 老 typing),整体放行。
+# 本步只有新骨架(__init__/core.settings/core.logging/ports/adapters)+ 新冒烟测试受严。
+# 后续阶段逐模块现代化后从此列表移除。
+extend-exclude = [
+    "src/unify_llm/agent",
+    "src/unify_llm/mcp",
+    "src/unify_llm/a2a",
+    "src/unify_llm/providers",
+    "src/unify_llm/langchain_adapter.py",
+    "src/unify_llm/client.py",
+    "src/unify_llm/models.py",
+    "src/unify_llm/utils.py",
+    "src/unify_llm/core/config.py",
+    "src/unify_llm/core/logger.py",
+    "src/unify_llm/core/exceptions.py",
+    "tests/test_basic.py",
+    "tests/test_agent_integration.py",
+    "tests/test_coverage_improvement.py",
+    "tests/test_mcp_a2a_databricks.py",
+    "tests/security",
+    "scripts",
+    "notebooks",
+    "docs",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ANN", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.13"
 strict = true
+warn_unreachable = true
 warn_return_any = true
 warn_unused_configs = true
+mypy_path = "src"
+explicit_package_bases = true
+
+# ── RATCHET ──: 存量模块从严格类型门豁免,只有新骨架受 mypy --strict。逐模块现代化后移出。
+[[tool.mypy.overrides]]
+module = [
+    "unify_llm.agent.*",
+    "unify_llm.mcp.*",
+    "unify_llm.a2a.*",
+    "unify_llm.providers.*",
+    "unify_llm.langchain_adapter",
+    "unify_llm.client",
+    "unify_llm.models",
+    "unify_llm.utils",
+    "unify_llm.core.config",
+    "unify_llm.core.logger",
+    "unify_llm.core.exceptions",
+]
+ignore_errors = true
 
 [tool.pytest.ini_options]
+addopts = "-q --import-mode=importlib --cov=unify_llm --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "-v --cov=unify_llm --cov-report=term-missing"
+filterwarnings = ["error"]
 markers = [
-    "integration: marks tests as integration tests that call real LLM APIs (deselect with '-m \"not integration\"')",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests that call real LLM APIs",
+    "slow: marks tests as slow",
 ]
