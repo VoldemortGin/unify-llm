@@ -1,20 +1,17 @@
-"""
-Logging utilities for UnifyLLM.
+"""Logging utilities for UnifyLLM.
 
 Provides a cross-platform logger that handles UTF-8 encoding properly on Windows.
 """
-
-
-from __future__ import annotations
 
 import logging
 import os
 import sys
 from pathlib import Path
 
-def _find_project_root() -> Path | None:
-    """
-    Try to find project root directory.
+
+def _find_project_root() -> Path:
+    """Try to find project root directory.
+
     Works in both development mode (with .project-root) and installed mode.
     """
     # 1. Check environment variable
@@ -25,47 +22,45 @@ def _find_project_root() -> Path | None:
 
     # 2. Try rootutils (development mode)
     try:
-        import rootutils
+        import rootutils  # type: ignore[import-not-found]
 
-        return rootutils.find_root(search_from=os.getcwd(), indicator=[".project-root"])
+        found = rootutils.find_root(search_from=os.getcwd(), indicator=[".project-root"])
     except (ImportError, FileNotFoundError):
-        pass
-
-    # 3. Fallback to current working directory
-    return Path.cwd()
+        return Path.cwd()
+    return Path(found)
 
 
 ROOT_DIR = _find_project_root()
 
 
-class UTF8StreamHandler(logging.StreamHandler):
-    """
-    Custom StreamHandler that handles UTF-8 encoding on Windows.
+class UTF8StreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    """Custom StreamHandler that handles UTF-8 encoding on Windows.
+
     Avoids GBK encoding issues while handling closed file scenarios.
     """
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """Override emit to handle UTF-8 encoding."""
         try:
             msg = self.format(record)
             stream = self.stream
 
             # Check if stream is closed
-            if hasattr(stream, 'closed') and stream.closed:
+            if hasattr(stream, "closed") and stream.closed:
                 return
 
             # On Windows, try UTF-8 encoding with fallback
-            if sys.platform == 'win32':
+            if sys.platform == "win32":
                 try:
                     stream.write(msg + self.terminator)
                     self.flush()
                 except UnicodeEncodeError:
-                    if hasattr(stream, 'buffer'):
-                        encoded = (msg + self.terminator).encode('utf-8', errors='replace')
+                    if hasattr(stream, "buffer"):
+                        encoded = (msg + self.terminator).encode("utf-8", errors="replace")
                         stream.buffer.write(encoded)
                         stream.buffer.flush()
                     else:
-                        encoded = (msg + self.terminator).encode('utf-8', errors='replace')
+                        encoded = (msg + self.terminator).encode("utf-8", errors="replace")
                         stream.write(encoded)
                         self.flush()
             else:
@@ -78,10 +73,9 @@ class UTF8StreamHandler(logging.StreamHandler):
 def setup_logger(
     name: str = "UnifyLLM",
     log_level: str = "INFO",
-    log_file: str | None = None
+    log_file: str | None = None,
 ) -> logging.Logger:
-    """
-    Setup and return a logger.
+    """Setup and return a logger.
 
     Args:
         name: Logger name
@@ -100,9 +94,7 @@ def setup_logger(
         return logger
 
     # Create formatter
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # Console handler (using custom UTF8StreamHandler)
     console_handler = UTF8StreamHandler(sys.stdout)
@@ -117,7 +109,7 @@ def setup_logger(
             log_file_path = ROOT_DIR / log_file_path
         log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+        file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
         file_handler.setLevel(getattr(logging, log_level.upper(), logging.INFO))
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
@@ -128,4 +120,4 @@ def setup_logger(
 # Create default logger (console only, can be reconfigured)
 logger = setup_logger("UnifyLLM")
 
-__all__ = ['logger', 'setup_logger', 'UTF8StreamHandler']
+__all__ = ["UTF8StreamHandler", "logger", "setup_logger"]

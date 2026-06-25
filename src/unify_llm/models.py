@@ -1,11 +1,26 @@
 """Core data models for UnifyLLM."""
 
+from enum import StrEnum
 
-from __future__ import annotations
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+class Role(StrEnum):
+    """Message sender role. StrEnum (str subclass) — 可从字符串强制、序列化为字面值。"""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+class FinishReason(StrEnum):
+    """Why generation stopped. StrEnum — 向后兼容历史的字符串字面值。"""
+
+    STOP = "stop"
+    LENGTH = "length"
+    TOOL_CALLS = "tool_calls"
+    CONTENT_FILTER = "content_filter"
 
 
 class Message(BaseModel):
@@ -19,32 +34,33 @@ class Message(BaseModel):
         tool_call_id: Optional ID of the tool call (for tool response messages)
     """
 
-    role: Literal["system", "user", "assistant", "tool"]
+    role: Role
     content: str | None = None
     name: str | None = None
-    tool_calls: Optional[list[dict[str, Any]]] = None
+    tool_calls: list[dict[str, object]] | None = None
     tool_call_id: str | None = None
 
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, v: str | None, info) -> str | None:
-        """Validate that content is provided for most message types."""
-        role = info.data.get("role")
-        tool_calls = info.data.get("tool_calls")
+    @model_validator(mode="after")
+    def validate_content(self) -> "Message":
+        """Validate that content is provided for most message types.
 
-        # Assistant messages with tool_calls can have empty content
-        if role == "assistant" and tool_calls:
-            return v
+        历史语义(保持不变):仅当 ``content`` 被显式提供时才校验(等价于旧
+        ``@field_validator`` 的 ``validate_default=False``);``tool`` 角色允许空 content,
+        其余角色要求非空。
+        """
+        # content 未显式提供时不校验
+        if "content" not in self.model_fields_set:
+            return self
 
         # Tool messages might have empty content in some cases
-        if role == "tool":
-            return v
+        if self.role == Role.TOOL:
+            return self
 
         # Other messages should have content
-        if v is None or v.strip() == "":
-            raise ValueError(f"Content is required for {role} messages")
+        if self.content is None or self.content.strip() == "":
+            raise ValueError(f"Content is required for {self.role} messages")
 
-        return v
+        return self
 
 
 class Usage(BaseModel):
@@ -88,13 +104,13 @@ class ChatRequest(BaseModel):
     top_p: float | None = Field(default=1.0, ge=0.0, le=1.0)
     frequency_penalty: float | None = Field(default=0.0, ge=-2.0, le=2.0)
     presence_penalty: float | None = Field(default=0.0, ge=-2.0, le=2.0)
-    stop: Optional[Union[str, list[str]]] = None
+    stop: str | list[str] | None = None
     stream: bool = False
-    tools: Optional[list[dict[str, Any]]] = None
-    tool_choice: Optional[Union[str, dict[str, Any]]] = None
+    tools: list[dict[str, object]] | None = None
+    tool_choice: str | dict[str, object] | None = None
     response_format: dict[str, str] | None = None
     user: str | None = None
-    extra_params: dict[str, Any] = Field(default_factory=dict)
+    extra_params: dict[str, object] = Field(default_factory=dict)
 
     @field_validator("messages")
     @classmethod
@@ -116,7 +132,7 @@ class ChatResponseChoice(BaseModel):
 
     index: int
     message: Message
-    finish_reason: Literal["stop", "length", "tool_calls", "content_filter"] | None = None
+    finish_reason: FinishReason | None = None
 
 
 class ChatResponse(BaseModel):
@@ -138,7 +154,7 @@ class ChatResponse(BaseModel):
     usage: Usage | None = None
     created: int
     provider: str
-    raw_response: dict[str, Any] | None = None
+    raw_response: dict[str, object] | None = None
 
     @property
     def content(self) -> str | None:
@@ -196,9 +212,9 @@ class MessageDelta(BaseModel):
         tool_calls: Tool calls delta
     """
 
-    role: Literal["system", "user", "assistant", "tool"] | None = None
+    role: Role | None = None
     content: str | None = None
-    tool_calls: Optional[list[dict[str, Any]]] = None
+    tool_calls: list[dict[str, object]] | None = None
 
 
 class StreamChoiceDelta(BaseModel):
@@ -212,7 +228,7 @@ class StreamChoiceDelta(BaseModel):
 
     index: int
     delta: MessageDelta
-    finish_reason: Literal["stop", "length", "tool_calls", "content_filter"] | None = None
+    finish_reason: FinishReason | None = None
 
 
 class ProviderConfig(BaseModel):

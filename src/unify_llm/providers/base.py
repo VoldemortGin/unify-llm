@@ -1,13 +1,13 @@
 """Base provider abstract class."""
 
-
-from __future__ import annotations
-
+import asyncio
+import contextlib
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Iterator, Optional
+from collections.abc import AsyncIterator, Callable, Iterator
+from types import TracebackType
+from typing import Self, TypeVar
 
 import httpx
-
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -17,6 +17,8 @@ from tenacity import (
 
 from unify_llm.core.exceptions import (
     APIError,
+    AuthenticationError,
+    InvalidRequestError,
     RateLimitError,
     TimeoutError,
 )
@@ -26,6 +28,8 @@ from unify_llm.models import (
     ProviderConfig,
     StreamChunk,
 )
+
+_T = TypeVar("_T")
 
 
 class BaseProvider(ABC):
@@ -41,7 +45,7 @@ class BaseProvider(ABC):
         async_client: Async HTTP client for making requests
     """
 
-    def __init__(self, config: ProviderConfig):
+    def __init__(self, config: ProviderConfig) -> None:
         """Initialize the provider.
 
         Args:
@@ -51,41 +55,25 @@ class BaseProvider(ABC):
         self.name = self.__class__.__name__.replace("Provider", "").lower()
 
         # Create HTTP clients with connection pooling
-        timeout = httpx.Timeout(
-            connect=5.0,
-            read=self.config.timeout,
-            write=10.0,
-            pool=5.0
-        )
+        timeout = httpx.Timeout(connect=5.0, read=self.config.timeout, write=10.0, pool=5.0)
         headers = self._get_headers()
         limits = httpx.Limits(
             max_keepalive_connections=20,
             max_connections=100,
-            keepalive_expiry=30.0
+            keepalive_expiry=30.0,
         )
 
-        self.client = httpx.Client(
-            timeout=timeout,
-            headers=headers,
-            limits=limits,
-        )
+        self.client = httpx.Client(timeout=timeout, headers=headers, limits=limits)
+        self.async_client = httpx.AsyncClient(timeout=timeout, headers=headers, limits=limits)
 
-        self.async_client = httpx.AsyncClient(
-            timeout=timeout,
-            headers=headers,
-            limits=limits,
-        )
-
-    def __del__(self):
+    def __del__(self) -> None:
         """Clean up HTTP clients."""
-        try:
+        with contextlib.suppress(Exception):
             self.client.close()
-        except Exception:
-            pass
         # SECURITY FIX: Also close async client to prevent resource leaks
         try:
-            if hasattr(self, 'async_client') and self.async_client:
-                import asyncio
+            if hasattr(self, "async_client") and self.async_client:
+                loop: asyncio.AbstractEventLoop | None
                 try:
                     loop = asyncio.get_running_loop()
                 except RuntimeError:
@@ -98,38 +86,47 @@ class BaseProvider(ABC):
         except Exception:
             pass
 
-    def close(self):
+    def close(self) -> None:
         """Explicitly close HTTP clients (recommended over relying on __del__)."""
         self.client.close()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Explicitly close async HTTP client."""
         await self.async_client.aclose()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Sync context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Sync context manager exit."""
         self.client.close()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         await self.async_client.aclose()
 
     @abstractmethod
-    def _get_headers(self) -> dict:
+    def _get_headers(self) -> dict[str, str]:
         """Get headers for API requests.
 
         Returns:
             Dictionary of headers
         """
-        pass
 
     @abstractmethod
     def _get_base_url(self) -> str:
@@ -138,10 +135,9 @@ class BaseProvider(ABC):
         Returns:
             Base URL string
         """
-        pass
 
     @abstractmethod
-    def _convert_request(self, request: ChatRequest) -> dict:
+    def _convert_request(self, request: ChatRequest) -> dict[str, object]:
         """Convert a ChatRequest to provider-specific format.
 
         Args:
@@ -150,10 +146,9 @@ class BaseProvider(ABC):
         Returns:
             Provider-specific request dictionary
         """
-        pass
 
     @abstractmethod
-    def _convert_response(self, response: dict) -> ChatResponse:
+    def _convert_response(self, response: dict[str, object]) -> ChatResponse:
         """Convert provider-specific response to ChatResponse.
 
         Args:
@@ -162,10 +157,9 @@ class BaseProvider(ABC):
         Returns:
             Unified chat response
         """
-        pass
 
     @abstractmethod
-    def _convert_stream_chunk(self, chunk: dict) -> StreamChunk | None:
+    def _convert_stream_chunk(self, chunk: dict[str, object]) -> StreamChunk | None:
         """Convert provider-specific stream chunk to StreamChunk.
 
         Args:
@@ -174,20 +168,23 @@ class BaseProvider(ABC):
         Returns:
             Unified stream chunk, or None if chunk should be skipped
         """
-        pass
 
-    def _create_retry_decorator(self):
-        """Create a retry decorator for API requests.
+    def _with_retry(self, func: Callable[[ChatRequest], _T]) -> Callable[[ChatRequest], _T]:
+        """Wrap a request implementation with the configured retry policy.
+
+        Args:
+            func: The (sync or async) request implementation to wrap.
 
         Returns:
-            Tenacity retry decorator
+            The wrapped callable, preserving the original call/return type.
         """
-        return retry(
+        decorator = retry(
             stop=stop_after_attempt(self.config.max_retries),
             wait=wait_exponential(multiplier=1, min=1, max=10),
             retry=retry_if_exception_type((RateLimitError, TimeoutError, APIError)),
             reraise=True,
         )
+        return decorator(func)
 
     def chat(self, request: ChatRequest) -> ChatResponse:
         """Make a synchronous chat request.
@@ -204,8 +201,7 @@ class BaseProvider(ABC):
         if request.stream:
             raise ValueError("Use chat_stream() for streaming requests")
 
-        retry_decorator = self._create_retry_decorator()
-        return retry_decorator(self._chat_impl)(request)
+        return self._with_retry(self._chat_impl)(request)
 
     @abstractmethod
     def _chat_impl(self, request: ChatRequest) -> ChatResponse:
@@ -217,7 +213,6 @@ class BaseProvider(ABC):
         Returns:
             Chat response
         """
-        pass
 
     async def achat(self, request: ChatRequest) -> ChatResponse:
         """Make an asynchronous chat request.
@@ -234,8 +229,7 @@ class BaseProvider(ABC):
         if request.stream:
             raise ValueError("Use achat_stream() for streaming requests")
 
-        retry_decorator = self._create_retry_decorator()
-        return await retry_decorator(self._achat_impl)(request)
+        return await self._with_retry(self._achat_impl)(request)
 
     @abstractmethod
     async def _achat_impl(self, request: ChatRequest) -> ChatResponse:
@@ -247,7 +241,6 @@ class BaseProvider(ABC):
         Returns:
             Chat response
         """
-        pass
 
     def chat_stream(self, request: ChatRequest) -> Iterator[StreamChunk]:
         """Make a synchronous streaming chat request.
@@ -276,7 +269,6 @@ class BaseProvider(ABC):
         Yields:
             Stream chunks
         """
-        pass
 
     async def achat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """Make an asynchronous streaming chat request.
@@ -297,7 +289,7 @@ class BaseProvider(ABC):
             yield chunk
 
     @abstractmethod
-    async def _achat_stream_impl(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
+    def _achat_stream_impl(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """Implementation of asynchronous streaming chat request.
 
         Args:
@@ -306,7 +298,6 @@ class BaseProvider(ABC):
         Yields:
             Stream chunks
         """
-        pass
 
     def _handle_http_error(self, error: httpx.HTTPStatusError) -> None:
         """Handle HTTP errors and convert to appropriate exceptions.
@@ -317,14 +308,8 @@ class BaseProvider(ABC):
         Raises:
             UnifyLLMError: Appropriate exception based on status code
         """
-        from unify_llm.core.exceptions import (
-            APIError,
-            AuthenticationError,
-            InvalidRequestError,
-            RateLimitError,
-        )
-
         status_code = error.response.status_code
+        response_data: dict[str, object]
         try:
             response_data = error.response.json()
         except Exception:

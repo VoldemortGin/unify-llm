@@ -1,11 +1,6 @@
 """Exception definitions for UnifyLLM."""
 
 
-from __future__ import annotations
-
-from typing import Any, Dict, Optional
-
-
 class UnifyLLMError(Exception):
     """Base exception for all UnifyLLM errors.
 
@@ -21,8 +16,8 @@ class UnifyLLMError(Exception):
         message: str,
         provider: str | None = None,
         status_code: int | None = None,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         self.message = message
         self.provider = provider
         self.status_code = status_code
@@ -53,8 +48,8 @@ class AuthenticationError(UnifyLLMError):
         message: str = "Authentication failed",
         provider: str | None = None,
         status_code: int | None = 401,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message, provider, status_code, response)
 
 
@@ -73,9 +68,9 @@ class RateLimitError(UnifyLLMError):
         message: str = "Rate limit exceeded",
         provider: str | None = None,
         status_code: int | None = 429,
-        response: dict[str, Any] | None = None,
+        response: dict[str, object] | None = None,
         retry_after: int | None = None,
-    ):
+    ) -> None:
         super().__init__(message, provider, status_code, response)
         self.retry_after = retry_after
 
@@ -95,8 +90,8 @@ class InvalidRequestError(UnifyLLMError):
         message: str = "Invalid request",
         provider: str | None = None,
         status_code: int | None = 400,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message, provider, status_code, response)
 
 
@@ -112,8 +107,8 @@ class APIError(UnifyLLMError):
         message: str = "API error occurred",
         provider: str | None = None,
         status_code: int | None = None,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message, provider, status_code, response)
 
 
@@ -127,8 +122,8 @@ class TimeoutError(UnifyLLMError):
         self,
         message: str = "Request timed out",
         provider: str | None = None,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message, provider, status_code=408, response=response)
 
 
@@ -143,8 +138,8 @@ class ModelNotFoundError(InvalidRequestError):
         self,
         model: str,
         provider: str | None = None,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         self.model = model
         message = f"Model '{model}' not found or not available"
         super().__init__(message, provider, status_code=404, response=response)
@@ -161,8 +156,8 @@ class ContentFilterError(UnifyLLMError):
         self,
         message: str = "Content filtered by provider policy",
         provider: str | None = None,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message, provider, status_code=400, response=response)
 
 
@@ -178,6 +173,6 @@ class ProviderError(UnifyLLMError):
         message: str,
         provider: str | None = None,
         status_code: int | None = None,
-        response: dict[str, Any] | None = None,
-    ):
+        response: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message, provider, status_code, response)

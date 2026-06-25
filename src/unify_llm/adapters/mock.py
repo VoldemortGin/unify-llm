@@ -4,7 +4,9 @@ from unify_llm.models import (
     ChatRequest,
     ChatResponse,
     ChatResponseChoice,
+    FinishReason,
     Message,
+    Role,
     Usage,
 )
 from unify_llm.ports.llm import LLMProvider
@@ -24,8 +26,8 @@ class MockProvider:
             choices=[
                 ChatResponseChoice(
                     index=0,
-                    message=Message(role="assistant", content=reply),
-                    finish_reason="stop",
+                    message=Message(role=Role.ASSISTANT, content=reply),
+                    finish_reason=FinishReason.STOP,
                 )
             ],
             usage=Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0),

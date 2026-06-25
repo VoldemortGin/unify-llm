@@ -60,20 +60,24 @@ line-length = 100
 target-version = "py313"
 src = ["src", "tests"]
 # ── RATCHET ──: 存量模块/测试/脚本尚未现代化(from __future__ + 老 typing),整体放行。
-# 本步只有新骨架(__init__/core.settings/core.logging/ports/adapters)+ 新冒烟测试受严。
-# 后续阶段逐模块现代化后从此列表移除。
+# Phase 2 已把"转换核心切片"(models/utils/client/core.{config,logger,exceptions} +
+# providers.{base,openai})移出本名单受全严;其余 9 个 provider + agent/mcp/a2a/langchain
+# 继续豁免,留后续阶段逐模块现代化后移除。
 extend-exclude = [
     "src/unify_llm/agent",
     "src/unify_llm/mcp",
     "src/unify_llm/a2a",
-    "src/unify_llm/providers",
+    "src/unify_llm/providers/__init__.py",
+    "src/unify_llm/providers/anthropic.py",
+    "src/unify_llm/providers/anthropic_openai.py",
+    "src/unify_llm/providers/gemini.py",
+    "src/unify_llm/providers/qwen.py",
+    "src/unify_llm/providers/grok.py",
+    "src/unify_llm/providers/bytedance.py",
+    "src/unify_llm/providers/databricks.py",
+    "src/unify_llm/providers/ollama.py",
+    "src/unify_llm/providers/openrouter.py",
     "src/unify_llm/langchain_adapter.py",
-    "src/unify_llm/client.py",
-    "src/unify_llm/models.py",
-    "src/unify_llm/utils.py",
-    "src/unify_llm/core/config.py",
-    "src/unify_llm/core/logger.py",
-    "src/unify_llm/core/exceptions.py",
     "tests/test_basic.py",
     "tests/test_agent_integration.py",
     "tests/test_coverage_improvement.py",
@@ -98,20 +102,24 @@ warn_unused_configs = true
 mypy_path = "src"
 explicit_package_bases = true
 
-# ── RATCHET ──: 存量模块从严格类型门豁免,只有新骨架受 mypy --strict。逐模块现代化后移出。
+# ── RATCHET ──: 存量模块从严格类型门豁免。Phase 2 已把转换核心切片移出受 mypy --strict;
+# 其余 9 个 provider + agent/mcp/a2a/langchain 继续豁免,逐模块现代化后再移出。
 [[tool.mypy.overrides]]
 module = [
     "unify_llm.agent.*",
     "unify_llm.mcp.*",
     "unify_llm.a2a.*",
-    "unify_llm.providers.*",
+    "unify_llm.providers",
+    "unify_llm.providers.anthropic",
+    "unify_llm.providers.anthropic_openai",
+    "unify_llm.providers.gemini",
+    "unify_llm.providers.qwen",
+    "unify_llm.providers.grok",
+    "unify_llm.providers.bytedance",
+    "unify_llm.providers.databricks",
+    "unify_llm.providers.ollama",
+    "unify_llm.providers.openrouter",
     "unify_llm.langchain_adapter",
-    "unify_llm.client",
-    "unify_llm.models",
-    "unify_llm.utils",
-    "unify_llm.core.config",
-    "unify_llm.core.logger",
-    "unify_llm.core.exceptions",
 ]
 ignore_errors = true
 

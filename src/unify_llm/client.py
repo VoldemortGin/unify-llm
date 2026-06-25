@@ -1,9 +1,7 @@
 """Unified client for LLM providers."""
 
-
-from __future__ import annotations
-
-from typing import AsyncIterator, Dict, Iterator, List, Optional, Type, Union
+from collections.abc import AsyncIterator, Iterator
+from typing import ClassVar
 
 from unify_llm.core.exceptions import InvalidRequestError
 from unify_llm.models import (
@@ -57,7 +55,7 @@ class UnifyLLM:
     """
 
     # Registry of available providers
-    _providers: dict[str, Type[BaseProvider]] = {
+    _providers: ClassVar[dict[str, type[BaseProvider]]] = {
         "openai": OpenAIProvider,
         "anthropic": AnthropicProvider,
         "anthropic_openai": AnthropicOpenAIProvider,
@@ -79,7 +77,7 @@ class UnifyLLM:
         max_retries: int = 3,
         organization: str | None = None,
         extra_headers: dict[str, str] | None = None,
-    ):
+    ) -> None:
         """Initialize the UnifyLLM client.
 
         Args:
@@ -123,7 +121,7 @@ class UnifyLLM:
         self._provider_name = provider  # Save for model name resolution
 
     @classmethod
-    def register_provider(cls, name: str, provider_class: Type[BaseProvider]) -> None:
+    def register_provider(cls, name: str, provider_class: type[BaseProvider]) -> None:
         """Register a custom provider.
 
         This allows users to add their own provider implementations.
@@ -151,19 +149,19 @@ class UnifyLLM:
     def _prepare_chat_request(
         self,
         model: str,
-        messages: list[Union[Message, dict[str, str]]],
+        messages: list[Message | dict[str, str]],
         stream: bool = False,
         temperature: float | None = None,
         max_tokens: int | None = None,
         top_p: float | None = None,
         frequency_penalty: float | None = None,
         presence_penalty: float | None = None,
-        stop: Optional[Union[str, list[str]]] = None,
-        tools: list[Dict] | None = None,
-        tool_choice: str | Dict | None = None,
+        stop: str | list[str] | None = None,
+        tools: list[dict[str, object]] | None = None,
+        tool_choice: str | dict[str, object] | None = None,
         response_format: dict[str, str] | None = None,
         user: str | None = None,
-        **extra_params,
+        extra_params: dict[str, object] | None = None,
     ) -> ChatRequest:
         """Prepare a chat request (shared logic for sync/async methods).
 
@@ -171,7 +169,7 @@ class UnifyLLM:
             model: Model identifier
             messages: List of messages
             stream: Whether to stream the response
-            **kwargs: Additional parameters
+            extra_params: Additional provider-specific parameters
 
         Returns:
             Prepared ChatRequest object
@@ -180,7 +178,9 @@ class UnifyLLM:
         resolved_model = resolve_model_name(self._provider_name, model)
 
         # Convert dict messages to Message objects
-        parsed_messages = [msg if isinstance(msg, Message) else Message(**msg) for msg in messages]
+        parsed_messages = [
+            msg if isinstance(msg, Message) else Message.model_validate(msg) for msg in messages
+        ]
 
         return ChatRequest(
             model=resolved_model,
@@ -196,24 +196,24 @@ class UnifyLLM:
             tool_choice=tool_choice,
             response_format=response_format,
             user=user,
-            extra_params=extra_params,
+            extra_params=extra_params or {},
         )
 
     def chat(
         self,
         model: str,
-        messages: list[Union[Message, dict[str, str]]],
+        messages: list[Message | dict[str, str]],
         temperature: float | None = None,
         max_tokens: int | None = None,
         top_p: float | None = None,
         frequency_penalty: float | None = None,
         presence_penalty: float | None = None,
-        stop: Optional[Union[str, list[str]]] = None,
-        tools: list[Dict] | None = None,
-        tool_choice: str | Dict | None = None,
+        stop: str | list[str] | None = None,
+        tools: list[dict[str, object]] | None = None,
+        tool_choice: str | dict[str, object] | None = None,
         response_format: dict[str, str] | None = None,
         user: str | None = None,
-        **extra_params,
+        **extra_params: object,
     ) -> ChatResponse:
         """Make a synchronous chat request.
 
@@ -263,25 +263,25 @@ class UnifyLLM:
             tool_choice=tool_choice,
             response_format=response_format,
             user=user,
-            **extra_params,
+            extra_params=extra_params,
         )
         return self._provider.chat(request)
 
     async def achat(
         self,
         model: str,
-        messages: list[Union[Message, dict[str, str]]],
+        messages: list[Message | dict[str, str]],
         temperature: float | None = None,
         max_tokens: int | None = None,
         top_p: float | None = None,
         frequency_penalty: float | None = None,
         presence_penalty: float | None = None,
-        stop: Optional[Union[str, list[str]]] = None,
-        tools: list[Dict] | None = None,
-        tool_choice: str | Dict | None = None,
+        stop: str | list[str] | None = None,
+        tools: list[dict[str, object]] | None = None,
+        tool_choice: str | dict[str, object] | None = None,
         response_format: dict[str, str] | None = None,
         user: str | None = None,
-        **extra_params,
+        **extra_params: object,
     ) -> ChatResponse:
         """Make an asynchronous chat request.
 
@@ -309,24 +309,24 @@ class UnifyLLM:
             tool_choice=tool_choice,
             response_format=response_format,
             user=user,
-            **extra_params,
+            extra_params=extra_params,
         )
         return await self._provider.achat(request)
 
     def chat_stream(
         self,
         model: str,
-        messages: list[Union[Message, dict[str, str]]],
+        messages: list[Message | dict[str, str]],
         temperature: float | None = None,
         max_tokens: int | None = None,
         top_p: float | None = None,
         frequency_penalty: float | None = None,
         presence_penalty: float | None = None,
-        stop: Optional[Union[str, list[str]]] = None,
-        tools: list[Dict] | None = None,
-        tool_choice: str | Dict | None = None,
+        stop: str | list[str] | None = None,
+        tools: list[dict[str, object]] | None = None,
+        tool_choice: str | dict[str, object] | None = None,
         user: str | None = None,
-        **extra_params,
+        **extra_params: object,
     ) -> Iterator[StreamChunk]:
         """Make a synchronous streaming chat request.
 
@@ -359,24 +359,24 @@ class UnifyLLM:
             tools=tools,
             tool_choice=tool_choice,
             user=user,
-            **extra_params,
+            extra_params=extra_params,
         )
         yield from self._provider.chat_stream(request)
 
     async def achat_stream(
         self,
         model: str,
-        messages: list[Union[Message, dict[str, str]]],
+        messages: list[Message | dict[str, str]],
         temperature: float | None = None,
         max_tokens: int | None = None,
         top_p: float | None = None,
         frequency_penalty: float | None = None,
         presence_penalty: float | None = None,
-        stop: Optional[Union[str, list[str]]] = None,
-        tools: list[Dict] | None = None,
-        tool_choice: str | Dict | None = None,
+        stop: str | list[str] | None = None,
+        tools: list[dict[str, object]] | None = None,
+        tool_choice: str | dict[str, object] | None = None,
         user: str | None = None,
-        **extra_params,
+        **extra_params: object,
     ) -> AsyncIterator[StreamChunk]:
         """Make an asynchronous streaming chat request.
 
@@ -405,7 +405,7 @@ class UnifyLLM:
             tools=tools,
             tool_choice=tool_choice,
             user=user,
-            **extra_params,
+            extra_params=extra_params,
         )
         async for chunk in self._provider.achat_stream(request):
             yield chunk

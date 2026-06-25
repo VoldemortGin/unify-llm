@@ -1,26 +1,86 @@
 """OpenAI provider implementation."""
 
-
-from __future__ import annotations
-
 import json
 import time
-from typing import AsyncIterator, Iterator, Optional
+from collections.abc import AsyncIterator, Iterator
+from typing import override
 
 import httpx
+from pydantic import BaseModel, Field
 
 from unify_llm.core.exceptions import TimeoutError as UnifyTimeoutError
 from unify_llm.models import (
     ChatRequest,
     ChatResponse,
     ChatResponseChoice,
+    FinishReason,
     Message,
     MessageDelta,
+    Role,
     StreamChoiceDelta,
     StreamChunk,
     Usage,
 )
 from unify_llm.providers.base import BaseProvider
+
+
+class _RawMessage(BaseModel):
+    """parse-don't-validate:OpenAI 响应里的 message 对象(最小契约)。"""
+
+    role: Role = Role.ASSISTANT
+    content: str | None = None
+    tool_calls: list[dict[str, object]] | None = None
+
+
+class _RawChoice(BaseModel):
+    """OpenAI 非流式响应的单个 choice。"""
+
+    index: int = 0
+    message: _RawMessage = Field(default_factory=_RawMessage)
+    finish_reason: FinishReason | None = None
+
+
+class _RawUsage(BaseModel):
+    """OpenAI 响应里的 usage 计数。"""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+
+class _RawResponse(BaseModel):
+    """OpenAI chat completion 原始响应的最小 pydantic 契约。"""
+
+    id: str = ""
+    model: str = ""
+    choices: list[_RawChoice] = Field(default_factory=list)
+    usage: _RawUsage = Field(default_factory=_RawUsage)
+    created: int | None = None
+
+
+class _RawDelta(BaseModel):
+    """OpenAI 流式 chunk 里的 delta 对象。"""
+
+    role: Role | None = None
+    content: str | None = None
+    tool_calls: list[dict[str, object]] | None = None
+
+
+class _RawStreamChoice(BaseModel):
+    """OpenAI 流式 chunk 的单个 choice。"""
+
+    index: int = 0
+    delta: _RawDelta = Field(default_factory=_RawDelta)
+    finish_reason: FinishReason | None = None
+
+
+class _RawStreamChunk(BaseModel):
+    """OpenAI 流式 chunk 的最小 pydantic 契约。"""
+
+    id: str = ""
+    model: str = ""
+    choices: list[_RawStreamChoice] = Field(default_factory=list)
+    created: int | None = None
 
 
 class OpenAIProvider(BaseProvider):
@@ -29,9 +89,10 @@ class OpenAIProvider(BaseProvider):
     Supports GPT-4, GPT-3.5-turbo, and other OpenAI models.
     """
 
-    def _get_headers(self) -> dict:
+    @override
+    def _get_headers(self) -> dict[str, str]:
         """Get headers for OpenAI API requests."""
-        headers = {
+        headers: dict[str, str] = {
             "Content-Type": "application/json",
         }
 
@@ -46,13 +107,15 @@ class OpenAIProvider(BaseProvider):
 
         return headers
 
+    @override
     def _get_base_url(self) -> str:
         """Get the base URL for OpenAI API."""
         return self.config.base_url or "https://api.openai.com/v1"
 
-    def _convert_request(self, request: ChatRequest) -> dict:
+    @override
+    def _convert_request(self, request: ChatRequest) -> dict[str, object]:
         """Convert ChatRequest to OpenAI API format."""
-        payload = {
+        payload: dict[str, object] = {
             "model": request.model,
             "messages": [
                 {
@@ -103,73 +166,73 @@ class OpenAIProvider(BaseProvider):
 
         return payload
 
-    def _convert_response(self, response: dict) -> ChatResponse:
-        """Convert OpenAI API response to ChatResponse."""
-        choices = []
-        for choice in response.get("choices", []):
-            msg_data = choice.get("message", {})
-            message = Message(
-                role=msg_data.get("role", "assistant"),
-                content=msg_data.get("content"),
-                tool_calls=msg_data.get("tool_calls"),
-            )
-            choices.append(
-                ChatResponseChoice(
-                    index=choice.get("index", 0),
-                    message=message,
-                    finish_reason=choice.get("finish_reason"),
-                )
-            )
+    @override
+    def _convert_response(self, response: dict[str, object]) -> ChatResponse:
+        """Convert OpenAI API response to ChatResponse (parse-don't-validate)."""
+        parsed = _RawResponse.model_validate(response)
 
-        usage_data = response.get("usage", {})
+        choices = [
+            ChatResponseChoice(
+                index=choice.index,
+                message=Message(
+                    role=choice.message.role,
+                    content=choice.message.content,
+                    tool_calls=choice.message.tool_calls,
+                ),
+                finish_reason=choice.finish_reason,
+            )
+            for choice in parsed.choices
+        ]
+
         usage = Usage(
-            prompt_tokens=usage_data.get("prompt_tokens", 0),
-            completion_tokens=usage_data.get("completion_tokens", 0),
-            total_tokens=usage_data.get("total_tokens", 0),
+            prompt_tokens=parsed.usage.prompt_tokens,
+            completion_tokens=parsed.usage.completion_tokens,
+            total_tokens=parsed.usage.total_tokens,
         )
 
         return ChatResponse(
-            id=response.get("id", ""),
-            model=response.get("model", ""),
+            id=parsed.id,
+            model=parsed.model,
             choices=choices,
             usage=usage,
-            created=response.get("created", int(time.time())),
+            created=parsed.created if parsed.created is not None else int(time.time()),
             provider="openai",
             raw_response=response,
         )
 
-    def _convert_stream_chunk(self, chunk: dict) -> StreamChunk | None:
-        """Convert OpenAI stream chunk to StreamChunk."""
+    @override
+    def _convert_stream_chunk(self, chunk: dict[str, object]) -> StreamChunk | None:
+        """Convert OpenAI stream chunk to StreamChunk (parse-don't-validate)."""
         if not chunk:
             return None
 
-        choices = []
-        for choice in chunk.get("choices", []):
-            delta_data = choice.get("delta", {})
-            delta = MessageDelta(
-                role=delta_data.get("role"),
-                content=delta_data.get("content"),
-                tool_calls=delta_data.get("tool_calls"),
+        parsed = _RawStreamChunk.model_validate(chunk)
+
+        choices = [
+            StreamChoiceDelta(
+                index=choice.index,
+                delta=MessageDelta(
+                    role=choice.delta.role,
+                    content=choice.delta.content,
+                    tool_calls=choice.delta.tool_calls,
+                ),
+                finish_reason=choice.finish_reason,
             )
-            choices.append(
-                StreamChoiceDelta(
-                    index=choice.get("index", 0),
-                    delta=delta,
-                    finish_reason=choice.get("finish_reason"),
-                )
-            )
+            for choice in parsed.choices
+        ]
 
         if not choices:
             return None
 
         return StreamChunk(
-            id=chunk.get("id", ""),
-            model=chunk.get("model", ""),
+            id=parsed.id,
+            model=parsed.model,
             choices=choices,
-            created=chunk.get("created", int(time.time())),
+            created=parsed.created if parsed.created is not None else int(time.time()),
             provider="openai",
         )
 
+    @override
     def _chat_impl(self, request: ChatRequest) -> ChatResponse:
         """Implementation of synchronous chat request."""
         url = f"{self._get_base_url()}/chat/completions"
@@ -188,6 +251,7 @@ class OpenAIProvider(BaseProvider):
             self._handle_http_error(e)
             raise
 
+    @override
     async def _achat_impl(self, request: ChatRequest) -> ChatResponse:
         """Implementation of asynchronous chat request."""
         url = f"{self._get_base_url()}/chat/completions"
@@ -206,6 +270,7 @@ class OpenAIProvider(BaseProvider):
             self._handle_http_error(e)
             raise
 
+    @override
     def _chat_stream_impl(self, request: ChatRequest) -> Iterator[StreamChunk]:
         """Implementation of synchronous streaming chat request."""
         url = f"{self._get_base_url()}/chat/completions"
@@ -242,6 +307,7 @@ class OpenAIProvider(BaseProvider):
             self._handle_http_error(e)
             raise
 
+    @override
     async def _achat_stream_impl(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """Implementation of asynchronous streaming chat request."""
         url = f"{self._get_base_url()}/chat/completions"

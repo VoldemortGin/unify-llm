@@ -1,13 +1,11 @@
 """Utility functions for UnifyLLM."""
 
-
-from __future__ import annotations
-
 import os
 from pathlib import Path
-from typing import Dict, Optional
 
-import yaml
+import yaml  # type: ignore[import-untyped]
+
+from unify_llm.core.settings import PROJECT_ROOT
 
 # Cache for model name mappings
 _model_name_mapping: dict[str, str] | None = None
@@ -17,13 +15,10 @@ def get_model_name_mapping_path() -> Path:
     """Get the path to model_name_mapping.yaml.
 
     Returns:
-        Path to the model name mapping configuration file
+        Path to the model name mapping configuration file (anchored at the repo root,
+        not the ``src/`` package dir).
     """
-    # Try to find the configs directory relative to this file
-    current_dir = Path(__file__).parent
-    project_root = current_dir.parent
-
-    return project_root / "configs" / "model_name_mapping.yaml"
+    return PROJECT_ROOT / "configs" / "model_name_mapping.yaml"
 
 
 def load_model_name_mapping() -> dict[str, str]:
@@ -33,7 +28,8 @@ def load_model_name_mapping() -> dict[str, str]:
     Format: alias -> provider/model (OpenRouter format)
 
     Returns:
-        Dictionary of alias -> full_model_name (e.g., "claude-4.5" -> "anthropic/claude-sonnet-4-5-20250929")
+        Dictionary of alias -> full_model_name
+        (e.g., "claude-4.5" -> "anthropic/claude-sonnet-4-5-20250929").
     """
     global _model_name_mapping
 
@@ -46,9 +42,10 @@ def load_model_name_mapping() -> dict[str, str]:
         _model_name_mapping = {}
         return _model_name_mapping
 
-    with open(mapping_path, "r", encoding="utf-8") as f:
-        _model_name_mapping = yaml.safe_load(f) or {}
+    with open(mapping_path, encoding="utf-8") as f:
+        loaded = yaml.safe_load(f)
 
+    _model_name_mapping = loaded if isinstance(loaded, dict) else {}
     return _model_name_mapping
 
 
@@ -156,10 +153,10 @@ def estimate_tokens(text: str) -> int:
 
 
 def truncate_messages(
-    messages: list[dict],
+    messages: list[dict[str, str]],
     max_tokens: int,
     preserve_system: bool = True,
-) -> list[dict]:
+) -> list[dict[str, str]]:
     """Truncate messages to fit within token limit.
 
     This is a simple truncation that removes oldest messages first.
@@ -177,8 +174,8 @@ def truncate_messages(
         return []
 
     # Separate system and other messages
-    system_messages: list[dict] = []
-    other_messages: list[dict] = []
+    system_messages: list[dict[str, str]] = []
+    other_messages: list[dict[str, str]] = []
 
     for msg in messages:
         if msg.get("role") == "system" and preserve_system:
@@ -187,16 +184,13 @@ def truncate_messages(
             other_messages.append(msg)
 
     # Calculate tokens for system messages
-    system_tokens = sum(
-        estimate_tokens(msg.get("content", ""))
-        for msg in system_messages
-    )
+    system_tokens = sum(estimate_tokens(msg.get("content", "")) for msg in system_messages)
 
     # Calculate available tokens for other messages
     available_tokens = max_tokens - system_tokens
 
     # Truncate from the beginning if needed
-    truncated_messages: list[dict] = []
+    truncated_messages: list[dict[str, str]] = []
     current_tokens = 0
 
     # Add messages from the end (most recent first)

@@ -2,42 +2,43 @@
 
 正统配置入口已迁至 unify_llm.core.settings(叶子,beartype hook 前导入)。本模块仅为
 兼容历史 `from unify_llm.core.config import settings/Settings/get_settings/load_yaml_config`
-而保留;Phase 2+ 现代化后移除。该文件在 ratchet 豁免名单内,不受严格门约束。
+而保留。根级 configs/ 的解析复用 settings 的根查找(向上找 pyproject.toml)。
 """
+
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from unify_llm.core.settings import PROJECT_ROOT
 
-def _find_project_root() -> Path | None:
+
+def _find_project_root() -> Path:
     if root_env := os.environ.get("UNIFY_LLM_ROOT"):
         root_path = Path(root_env)
         if root_path.exists():
             return root_path
-    cwd = Path.cwd()
-    if (cwd / ".env").exists() or (cwd / "configs").exists():
-        return cwd
-    return None
+    return PROJECT_ROOT
 
 
 @lru_cache(maxsize=1)
-def _yaml_config() -> dict[str, Any]:
+def _yaml_config() -> dict[str, object]:
     root = _find_project_root()
-    candidates = [
-        Path(os.environ["UNIFY_LLM_CONFIG"]) if os.environ.get("UNIFY_LLM_CONFIG") else None,
-        (root / "configs" / "config.yaml") if root else None,
+    config_env = os.environ.get("UNIFY_LLM_CONFIG")
+    candidates: list[Path] = [
+        *([Path(config_env)] if config_env else []),
+        root / "configs" / "config.yaml",
         Path.cwd() / "configs" / "config.yaml",
         Path.home() / ".unify_llm" / "config.yaml",
     ]
     for path in candidates:
-        if path and path.exists():
+        if path.exists():
             with open(path, encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
+                loaded = yaml.safe_load(f)
+                return loaded if isinstance(loaded, dict) else {}
     return {}
 
 
@@ -72,14 +73,13 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="allow")
 
-    def get_config(self, key: str, default: Any = None) -> Any:
-        value: Any = _yaml_config()
-        try:
-            for part in key.split("."):
-                value = value[part]
-            return value
-        except (KeyError, TypeError):
-            return default
+    def get_config(self, key: str, default: object = None) -> object:
+        value: object = _yaml_config()
+        for part in key.split("."):
+            if not isinstance(value, dict) or part not in value:
+                return default
+            value = value[part]
+        return value
 
 
 @lru_cache(maxsize=1)
@@ -89,17 +89,18 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def load_yaml_config(config_path: str | Path | None = None) -> dict[str, Any]:
+def load_yaml_config(config_path: str | Path | None = None) -> dict[str, object]:
     if config_path is None:
         return _yaml_config()
     path = Path(config_path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
     with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        loaded = yaml.safe_load(f)
+        return loaded if isinstance(loaded, dict) else {}
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     if name == "settings":
         return get_settings()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

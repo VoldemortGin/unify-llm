@@ -27,6 +27,9 @@ def _find_project_root() -> Path:
 
 _ROOT = _find_project_root()
 
+# 仓库根(向上找 pyproject.toml);utils / core.config 解析根级 configs/ 时复用本常量。
+PROJECT_ROOT: Path = _ROOT
+
 
 class RetrieverConfig(BaseModel):
     top_k: int = 5
