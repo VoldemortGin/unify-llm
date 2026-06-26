@@ -1,27 +1,27 @@
-"""Provider adapters for various LLM services.
+"""向后兼容门面:provider 实现已迁入 ``unify_llm.adapters``,本包仅做懒加载再导出。
 
-PEP 562 懒加载:`import unify_llm.providers` 不再急切拉起全部 provider 模块;访问某个
-provider 名时才导入其模块(与顶层 unify_llm.__init__ 同构)。Phase 2 期间 9 个尚未现代化
-的 provider 在 beartype On 下会触发 PEP585 弃用告警,懒加载让"只用某个已现代化 provider"
-时不会把它们一并拉起。逐 provider 现代化后本 shim 可移出豁免。
+历史代码/README 仍可 ``from unify_llm.providers import BaseProvider, OpenAIProvider`` 等;实际类
+现居 ``unify_llm.adapters.*``。PEP 562 懒加载:``import unify_llm.providers`` 不会急切拉起全部
+adapter,访问某个名字时才导入其所在模块。
 """
 
 import importlib
 from typing import Any
 
-# 导出名 → 其所在模块。首次访问时才 import,bare `import unify_llm.providers` 保持轻量。
+# 导出名 → 其所在 adapters 模块。首次访问时才 import。
 _LAZY_EXPORTS: dict[str, str] = {
-    "BaseProvider": "unify_llm.providers.base",
-    "OpenAIProvider": "unify_llm.providers.openai",
-    "AnthropicProvider": "unify_llm.providers.anthropic",
-    "AnthropicOpenAIProvider": "unify_llm.providers.anthropic_openai",
-    "GeminiProvider": "unify_llm.providers.gemini",
-    "OllamaProvider": "unify_llm.providers.ollama",
-    "GrokProvider": "unify_llm.providers.grok",
-    "OpenRouterProvider": "unify_llm.providers.openrouter",
-    "DatabricksProvider": "unify_llm.providers.databricks",
-    "QwenProvider": "unify_llm.providers.qwen",
-    "ByteDanceProvider": "unify_llm.providers.bytedance",
+    "BaseProvider": "unify_llm.adapters.base",
+    "OpenAIProvider": "unify_llm.adapters.openai_compatible",
+    "GrokProvider": "unify_llm.adapters.openai_compatible",
+    "OpenRouterProvider": "unify_llm.adapters.openai_compatible",
+    "ByteDanceProvider": "unify_llm.adapters.openai_compatible",
+    "DeepSeekProvider": "unify_llm.adapters.openai_compatible",
+    "AnthropicProvider": "unify_llm.adapters.anthropic",
+    "AnthropicOpenAIProvider": "unify_llm.adapters.anthropic_openai",
+    "GeminiProvider": "unify_llm.adapters.gemini",
+    "OllamaProvider": "unify_llm.adapters.ollama",
+    "DatabricksProvider": "unify_llm.adapters.databricks",
+    "QwenProvider": "unify_llm.adapters.qwen",
 }
 
 __all__ = list(_LAZY_EXPORTS)

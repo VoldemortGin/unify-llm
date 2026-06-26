@@ -1,13 +1,10 @@
 """Basic tests for UnifyLLM."""
 
 import pytest
-import rootutils
-
-ROOT_DIR = rootutils.setup_root(search_from=__file__, indicator=[".project-root"], pythonpath=True)
 
 from unify_llm import UnifyLLM
-from unify_llm.models import Message, ChatRequest
 from unify_llm.core.exceptions import InvalidRequestError
+from unify_llm.models import ChatRequest, Message
 
 
 def test_client_initialization():

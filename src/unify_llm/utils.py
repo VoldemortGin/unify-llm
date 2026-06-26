@@ -94,6 +94,23 @@ def reload_model_name_mapping() -> dict[str, str]:
     return load_model_name_mapping()
 
 
+# provider → 候选 API key 环境变量(单一来源:get_api_key_from_env / requires_api_key 共用)。
+# 空列表表示该 provider 无需 key(如本地 ollama),工厂据此决定"缺 key 时是否回退/硬失败"。
+ENV_VAR_MAP: dict[str, list[str]] = {
+    "openai": ["OPENAI_API_KEY"],
+    "anthropic": ["ANTHROPIC_API_KEY"],
+    "anthropic_openai": ["ANTHROPIC_API_KEY"],
+    "gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+    "grok": ["XAI_API_KEY", "GROK_API_KEY"],
+    "ollama": [],  # Ollama doesn't need API key
+    "openrouter": ["OPENROUTER_API_KEY"],
+    "databricks": ["DATABRICKS_API_KEY"],
+    "qwen": ["QWEN_API_KEY", "DASHSCOPE_API_KEY"],
+    "bytedance": ["BYTEDANCE_API_KEY", "DOUBAO_API_KEY"],
+    "deepseek": ["DEEPSEEK_API_KEY"],
+}
+
+
 def get_api_key_from_env(provider: str) -> str | None:
     """Get API key from environment variables.
 
@@ -110,30 +127,29 @@ def get_api_key_from_env(provider: str) -> str | None:
         - OpenAI: OPENAI_API_KEY
         - Anthropic: ANTHROPIC_API_KEY
         - Gemini: GEMINI_API_KEY or GOOGLE_API_KEY
+        - DeepSeek: DEEPSEEK_API_KEY
     """
-    # Standard environment variable names for each provider
-    env_var_map: dict[str, list[str]] = {
-        "openai": ["OPENAI_API_KEY"],
-        "anthropic": ["ANTHROPIC_API_KEY"],
-        "anthropic_openai": ["ANTHROPIC_API_KEY"],
-        "gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
-        "grok": ["XAI_API_KEY", "GROK_API_KEY"],
-        "ollama": [],  # Ollama doesn't need API key
-        "openrouter": ["OPENROUTER_API_KEY"],
-        "databricks": ["DATABRICKS_API_KEY"],
-        "qwen": ["QWEN_API_KEY", "DASHSCOPE_API_KEY"],
-        "bytedance": ["BYTEDANCE_API_KEY", "DOUBAO_API_KEY"],
-    }
-
-    provider_lower = provider.lower()
-    env_vars = env_var_map.get(provider_lower, [])
-
-    for env_var in env_vars:
+    for env_var in ENV_VAR_MAP.get(provider.lower(), []):
         api_key = os.getenv(env_var)
         if api_key:
             return api_key
 
     return None
+
+
+def requires_api_key(provider: str) -> bool:
+    """该 provider 是否需要 API key。
+
+    用于工厂的"缺 key"判定:无需 key 的 provider(如本地 ollama)即使没 key 也应正常装配,
+    不该回退到 Mock。未知 provider 默认视为需要 key(保守)。
+
+    Args:
+        provider: Provider name.
+
+    Returns:
+        True 表示需要 key;False 表示该 provider 无需 key。
+    """
+    return ENV_VAR_MAP.get(provider.lower(), ["__unknown__"]) != []
 
 
 def estimate_tokens(text: str) -> int:

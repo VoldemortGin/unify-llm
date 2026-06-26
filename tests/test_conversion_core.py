@@ -11,6 +11,7 @@ import json
 import httpx
 import pytest
 
+from unify_llm.adapters.openai_compatible import OpenAIProvider
 from unify_llm.core.exceptions import (
     AuthenticationError,
     InvalidRequestError,
@@ -24,7 +25,6 @@ from unify_llm.models import (
     ProviderConfig,
     Role,
 )
-from unify_llm.providers.openai import OpenAIProvider
 from unify_llm.utils import get_model_name_mapping_path, resolve_model_name
 
 

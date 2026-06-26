@@ -1,4 +1,8 @@
-"""Base provider abstract class."""
+"""Base provider abstract class + shared adapter helpers.
+
+adapters 是 ports 的具体实现,也是唯一允许直连厂商 HTTP 的层。本模块承载所有 adapter
+共用的 HTTP 管线(连接池 / 重试 / 错误分类 / 网络错归一)与两个解析小工具。
+"""
 
 import asyncio
 import contextlib
@@ -19,17 +23,45 @@ from unify_llm.core.exceptions import (
     APIError,
     AuthenticationError,
     InvalidRequestError,
+    ProviderError,
     RateLimitError,
     TimeoutError,
 )
 from unify_llm.models import (
     ChatRequest,
     ChatResponse,
+    FinishReason,
     ProviderConfig,
     StreamChunk,
 )
 
 _T = TypeVar("_T")
+
+
+def to_finish_reason(
+    value: object, mapping: dict[str, FinishReason] | None = None
+) -> FinishReason | None:
+    """把厂商私有的 finish/stop 原因安全归一为统一的 FinishReason(未知一律 None)。
+
+    parse-don't-validate:厂商可能给出 ``end_turn`` / ``OTHER`` / ``null`` 等不在统一枚举里的
+    值;直接塞进 ``FinishReason`` 字段会 ValidationError。本函数先查 ``mapping``,再尝试枚举字面
+    值,二者皆不中则返回 None,绝不抛。
+
+    Args:
+        value: 厂商响应里的原始原因(任意类型,容错处理)。
+        mapping: 厂商私有原因 → 统一 FinishReason 的映射(可选)。
+
+    Returns:
+        归一后的 FinishReason,或 None。
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    if mapping is not None and value in mapping:
+        return mapping[value]
+    try:
+        return FinishReason(value)
+    except ValueError:
+        return None
 
 
 class BaseProvider(ABC):
@@ -345,3 +377,21 @@ class BaseProvider(ABC):
                 status_code=status_code,
                 response=response_data,
             )
+
+    def _network_error(self, error: httpx.RequestError) -> ProviderError:
+        """归一厂商网络错(ConnectError/DNS/读写失败等)为 ProviderError。
+
+        超时(httpx.TimeoutException)由各 adapter 单独映射为 TimeoutError;HTTP 状态码错由
+        ``_handle_http_error`` 分类。本方法只兜底其余传输层错误,让 exceptions.ProviderError
+        真正被抛出而非形同虚设。
+
+        Args:
+            error: httpx 传输层错误(非超时、非状态码)。
+
+        Returns:
+            归一后的 ProviderError(调用方负责 ``raise ... from error``)。
+        """
+        return ProviderError(
+            message=f"Network error while contacting {self.name}: {error}",
+            provider=self.name,
+        )

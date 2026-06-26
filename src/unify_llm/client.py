@@ -1,8 +1,9 @@
-"""Unified client for LLM providers."""
+"""Unified client for LLM providers(兼容门面:内部委托 ports.factory 的唯一注册表/装配缝)。"""
 
 from collections.abc import AsyncIterator, Iterator
 from typing import ClassVar
 
+from unify_llm.adapters.base import BaseProvider
 from unify_llm.core.exceptions import InvalidRequestError
 from unify_llm.models import (
     ChatRequest,
@@ -11,18 +12,10 @@ from unify_llm.models import (
     ProviderConfig,
     StreamChunk,
 )
-from unify_llm.providers.anthropic import AnthropicProvider
-from unify_llm.providers.anthropic_openai import AnthropicOpenAIProvider
-from unify_llm.providers.base import BaseProvider
-from unify_llm.providers.bytedance import ByteDanceProvider
-from unify_llm.providers.databricks import DatabricksProvider
-from unify_llm.providers.gemini import GeminiProvider
-from unify_llm.providers.grok import GrokProvider
-from unify_llm.providers.ollama import OllamaProvider
-from unify_llm.providers.openai import OpenAIProvider
-from unify_llm.providers.openrouter import OpenRouterProvider
-from unify_llm.providers.qwen import QwenProvider
-from unify_llm.utils import resolve_model_name
+from unify_llm.ports import factory
+from unify_llm.ports.factory import ProviderBuilder
+from unify_llm.ports.llm import LLMProvider
+from unify_llm.utils import get_api_key_from_env, resolve_model_name
 
 
 class UnifyLLM:
@@ -54,19 +47,8 @@ class UnifyLLM:
         ```
     """
 
-    # Registry of available providers
-    _providers: ClassVar[dict[str, type[BaseProvider]]] = {
-        "openai": OpenAIProvider,
-        "anthropic": AnthropicProvider,
-        "anthropic_openai": AnthropicOpenAIProvider,
-        "gemini": GeminiProvider,
-        "ollama": OllamaProvider,
-        "grok": GrokProvider,
-        "openrouter": OpenRouterProvider,
-        "databricks": DatabricksProvider,
-        "qwen": QwenProvider,
-        "bytedance": ByteDanceProvider,
-    }
+    # 唯一 provider 表收编进 ports.factory;此处保留同一引用以兼容历史的成员判断/注册。
+    _providers: ClassVar[dict[str, ProviderBuilder]] = factory.REGISTRY
 
     def __init__(
         self,
@@ -93,16 +75,8 @@ class UnifyLLM:
         Raises:
             InvalidRequestError: If the provider is not supported
         """
-        if provider not in self._providers:
-            available = ", ".join(self._providers.keys())
-            raise InvalidRequestError(
-                f"Provider '{provider}' not supported. Available providers: {available}"
-            )
-
         # Auto-load API key from environment if not provided
         if api_key is None:
-            from unify_llm.utils import get_api_key_from_env
-
             api_key = get_api_key_from_env(provider)
 
         # Create provider config
@@ -115,9 +89,9 @@ class UnifyLLM:
             extra_headers=extra_headers or {},
         )
 
-        # Initialize provider
-        provider_class = self._providers[provider]
-        self._provider: BaseProvider = provider_class(config)
+        # 委托唯一装配缝纯查表构造(未知 provider → InvalidRequestError)。
+        # 门面语义:显式选定即如实构造,不做 Mock 回退(缺 key 留到调用时报错)。
+        self._provider: LLMProvider = factory.build(provider, config)
         self._provider_name = provider  # Save for model name resolution
 
     @classmethod
@@ -144,7 +118,7 @@ class UnifyLLM:
         """
         if not issubclass(provider_class, BaseProvider):
             raise InvalidRequestError("Provider class must inherit from BaseProvider")
-        cls._providers[name] = provider_class
+        factory.register(name, provider_class)
 
     def _prepare_chat_request(
         self,

@@ -1,14 +1,25 @@
-"""Qwen (通义千问) provider implementation."""
+"""阿里云通义千问 / DashScope provider(adapters 层)。
 
+DashScope 文本生成接口形状与 OpenAI 不同:请求体为 ``input.messages`` + ``parameters``,
+多条 system 消息合并成单条置顶 system;流式靠 ``parameters.incremental_output=True`` 开启,
+响应落在 ``output`` 下(优先 ``output.choices[].message``,否则回退 ``output.text``),用量为
+``{input_tokens, output_tokens, total_tokens}``,顶层带 ``request_id``;SSE 既有 ``data:`` 前缀
+行也有无前缀整行回退;端点 ``/services/aigc/text-generation/generation``。
 
-from __future__ import annotations
+本文件是 OLD ``unify_llm.providers.qwen`` 在严格门禁下的现代化移植:parse-don't-validate
+(私有 ``_Raw*`` pydantic 契约)、PEP604/内建泛型、``@override``、``to_finish_reason`` 归一
+DashScope 的 ``"null"`` 等非枚举原因,以及三分支错误归一(超时优先、状态码、网络错兜底)。
+"""
 
 import json
 import time
-from typing import AsyncIterator, Iterator, Optional
+from collections.abc import AsyncIterator, Iterator
+from typing import override
 
 import httpx
+from pydantic import BaseModel, Field
 
+from unify_llm.adapters.base import BaseProvider, to_finish_reason
 from unify_llm.core.exceptions import TimeoutError as UnifyTimeoutError
 from unify_llm.models import (
     ChatRequest,
@@ -16,11 +27,58 @@ from unify_llm.models import (
     ChatResponseChoice,
     Message,
     MessageDelta,
+    Role,
     StreamChoiceDelta,
     StreamChunk,
     Usage,
 )
-from unify_llm.providers.base import BaseProvider
+
+
+# ── parse-don't-validate:DashScope text-generation 响应/流式 chunk 的最小契约 ──
+class _RawMessage(BaseModel):
+    """``output.choices[].message`` 对象(role 缺省时为 None,由转换层按上下文补默认)。"""
+
+    role: Role | None = None
+    content: str | None = None
+
+
+class _RawChoice(BaseModel):
+    """``output.choices`` 的单个 choice;``finish_reason`` 保留原始串待 to_finish_reason 归一。"""
+
+    message: _RawMessage = Field(default_factory=_RawMessage)
+    finish_reason: str | None = None
+
+
+class _RawOutput(BaseModel):
+    """``output`` 节点:既建模 ``choices`` 主路径,也建模 ``text`` 回退路径。"""
+
+    choices: list[_RawChoice] = Field(default_factory=list)
+    text: str | None = None
+    finish_reason: str | None = None
+
+
+class _RawUsage(BaseModel):
+    """``usage`` 计数(DashScope 命名:input/output/total tokens)。"""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+
+
+class _RawResponse(BaseModel):
+    """非流式响应的最小契约。"""
+
+    output: _RawOutput = Field(default_factory=_RawOutput)
+    usage: _RawUsage = Field(default_factory=_RawUsage)
+    request_id: str = ""
+    model: str = ""
+
+
+class _RawChunk(BaseModel):
+    """流式 chunk 的最小契约(复用同一 ``output``-形状模型)。"""
+
+    output: _RawOutput = Field(default_factory=_RawOutput)
+    request_id: str = ""
 
 
 class QwenProvider(BaseProvider):
@@ -30,11 +88,10 @@ class QwenProvider(BaseProvider):
     API endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation
     """
 
-    def _get_headers(self) -> dict:
-        """Get headers for Qwen API requests."""
-        headers = {
-            "Content-Type": "application/json",
-        }
+    @override
+    def _get_headers(self) -> dict[str, str]:
+        """Get headers for Qwen API requests (Bearer auth + configured extras)."""
+        headers: dict[str, str] = {"Content-Type": "application/json"}
 
         if self.config.api_key:
             headers["Authorization"] = f"Bearer {self.config.api_key}"
@@ -42,18 +99,25 @@ class QwenProvider(BaseProvider):
         headers.update(self.config.extra_headers)
         return headers
 
+    @override
     def _get_base_url(self) -> str:
         """Get the base URL for Qwen API."""
         return self.config.base_url or "https://dashscope.aliyuncs.com/api/v1"
 
-    def _convert_request(self, request: ChatRequest) -> dict:
-        """Convert ChatRequest to Qwen API format."""
+    @override
+    def _convert_request(self, request: ChatRequest) -> dict[str, object]:
+        """Convert ChatRequest to Qwen (DashScope) API format.
+
+        System messages are merged into a single leading system message;
+        generation params funnel through ``parameters`` (with extra_params
+        merged in), and ``incremental_output`` is enabled for streaming.
+        """
         # Separate system messages from conversation messages
-        system_content = None
-        messages = []
+        system_content: str | None = None
+        messages: list[dict[str, object]] = []
 
         for msg in request.messages:
-            if msg.role == "system":
+            if msg.role == Role.SYSTEM:
                 # Qwen combines multiple system messages
                 if system_content:
                     system_content += "\n" + (msg.content or "")
@@ -67,16 +131,9 @@ class QwenProvider(BaseProvider):
                     }
                 )
 
-        payload = {
-            "model": request.model,
-            "input": {
-                "messages": messages,
-            },
-        }
-
         # Add system message if present
         if system_content:
-            payload["input"]["messages"].insert(
+            messages.insert(
                 0,
                 {
                     "role": "system",
@@ -84,8 +141,15 @@ class QwenProvider(BaseProvider):
                 },
             )
 
+        payload: dict[str, object] = {
+            "model": request.model,
+            "input": {
+                "messages": messages,
+            },
+        }
+
         # Build parameters object
-        parameters = {}
+        parameters: dict[str, object] = {}
 
         if request.temperature is not None:
             parameters["temperature"] = request.temperature
@@ -103,63 +167,59 @@ class QwenProvider(BaseProvider):
         if request.stream:
             parameters["incremental_output"] = True
 
+        # Merge extra parameters into the parameters object
+        parameters.update(request.extra_params)
+
         if parameters:
             payload["parameters"] = parameters
 
-        # Add extra parameters
-        if request.extra_params:
-            if "parameters" not in payload:
-                payload["parameters"] = {}
-            payload["parameters"].update(request.extra_params)
-
         return payload
 
-    def _convert_response(self, response: dict) -> ChatResponse:
-        """Convert Qwen API response to ChatResponse."""
-        output = response.get("output", {})
-        usage_data = response.get("usage", {})
+    @override
+    def _convert_response(self, response: dict[str, object]) -> ChatResponse:
+        """Convert Qwen API response to ChatResponse (parse-don't-validate)."""
+        parsed = _RawResponse.model_validate(response)
+        output = parsed.output
 
-        # Extract message content
-        choices = output.get("choices", [])
-        converted_choices = []
+        # Extract message content from choices
+        converted_choices: list[ChatResponseChoice] = []
 
-        for idx, choice in enumerate(choices):
-            message_data = choice.get("message", {})
+        for idx, choice in enumerate(output.choices):
             message = Message(
-                role=message_data.get("role", "assistant"),
-                content=message_data.get("content"),
+                role=choice.message.role or Role.ASSISTANT,
+                content=choice.message.content,
             )
             converted_choices.append(
                 ChatResponseChoice(
                     index=idx,
                     message=message,
-                    finish_reason=choice.get("finish_reason"),
+                    finish_reason=to_finish_reason(choice.finish_reason),
                 )
             )
 
         # If no choices, try to get text directly from output
-        if not converted_choices and output.get("text"):
+        if not converted_choices and output.text:
             message = Message(
-                role="assistant",
-                content=output.get("text"),
+                role=Role.ASSISTANT,
+                content=output.text,
             )
             converted_choices.append(
                 ChatResponseChoice(
                     index=0,
                     message=message,
-                    finish_reason=output.get("finish_reason", "stop"),
+                    finish_reason=to_finish_reason(output.finish_reason or "stop"),
                 )
             )
 
         usage = Usage(
-            prompt_tokens=usage_data.get("input_tokens", 0),
-            completion_tokens=usage_data.get("output_tokens", 0),
-            total_tokens=usage_data.get("total_tokens", 0),
+            prompt_tokens=parsed.usage.input_tokens,
+            completion_tokens=parsed.usage.output_tokens,
+            total_tokens=parsed.usage.total_tokens,
         )
 
         return ChatResponse(
-            id=response.get("request_id", ""),
-            model=response.get("model", ""),
+            id=parsed.request_id,
+            model=parsed.model,
             choices=converted_choices,
             usage=usage,
             created=int(time.time()),
@@ -167,45 +227,41 @@ class QwenProvider(BaseProvider):
             raw_response=response,
         )
 
-    def _convert_stream_chunk(self, chunk: dict) -> StreamChunk | None:
-        """Convert Qwen stream chunk to StreamChunk."""
+    @override
+    def _convert_stream_chunk(self, chunk: dict[str, object]) -> StreamChunk | None:
+        """Convert Qwen stream chunk to StreamChunk (parse-don't-validate)."""
         if not chunk:
             return None
 
-        output = chunk.get("output", {})
+        parsed = _RawChunk.model_validate(chunk)
+        output = parsed.output
 
-        # Get content from output
-        content = output.get("text")
-        finish_reason = output.get("finish_reason")
+        converted_choices: list[StreamChoiceDelta] = []
 
-        choices = output.get("choices", [])
-        converted_choices = []
-
-        if choices:
-            for idx, choice in enumerate(choices):
-                message_data = choice.get("message", {})
+        if output.choices:
+            for idx, choice in enumerate(output.choices):
                 delta = MessageDelta(
-                    role=message_data.get("role"),
-                    content=message_data.get("content"),
+                    role=choice.message.role,
+                    content=choice.message.content,
                 )
                 converted_choices.append(
                     StreamChoiceDelta(
                         index=idx,
                         delta=delta,
-                        finish_reason=choice.get("finish_reason"),
+                        finish_reason=to_finish_reason(choice.finish_reason),
                     )
                 )
-        elif content:
+        elif output.text:
             # Fallback to text field
             delta = MessageDelta(
-                role="assistant",
-                content=content,
+                role=Role.ASSISTANT,
+                content=output.text,
             )
             converted_choices.append(
                 StreamChoiceDelta(
                     index=0,
                     delta=delta,
-                    finish_reason=finish_reason,
+                    finish_reason=to_finish_reason(output.finish_reason),
                 )
             )
 
@@ -213,13 +269,14 @@ class QwenProvider(BaseProvider):
             return None
 
         return StreamChunk(
-            id=chunk.get("request_id", ""),
+            id=parsed.request_id,
             model="",
             choices=converted_choices,
             created=int(time.time()),
             provider="qwen",
         )
 
+    @override
     def _chat_impl(self, request: ChatRequest) -> ChatResponse:
         """Implementation of synchronous chat request."""
         url = f"{self._get_base_url()}/services/aigc/text-generation/generation"
@@ -232,12 +289,15 @@ class QwenProvider(BaseProvider):
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="qwen",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e
 
+    @override
     async def _achat_impl(self, request: ChatRequest) -> ChatResponse:
         """Implementation of asynchronous chat request."""
         url = f"{self._get_base_url()}/services/aigc/text-generation/generation"
@@ -250,21 +310,26 @@ class QwenProvider(BaseProvider):
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="qwen",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e
 
+    @override
     def _chat_stream_impl(self, request: ChatRequest) -> Iterator[StreamChunk]:
         """Implementation of synchronous streaming chat request."""
         url = f"{self._get_base_url()}/services/aigc/text-generation/generation"
         payload = self._convert_request(request)
 
         # Ensure streaming is enabled
-        if "parameters" not in payload:
-            payload["parameters"] = {}
-        payload["parameters"]["incremental_output"] = True
+        params = payload.get("parameters")
+        if isinstance(params, dict):
+            params["incremental_output"] = True
+        else:
+            payload["parameters"] = {"incremental_output": True}
 
         try:
             with self.client.stream("POST", url, json=payload) as response:
@@ -283,39 +348,42 @@ class QwenProvider(BaseProvider):
 
                         try:
                             chunk_data = json.loads(data)
-                            chunk = self._convert_stream_chunk(chunk_data)
-                            if chunk:
-                                yield chunk
                         except json.JSONDecodeError:
                             continue
                     else:
                         # Some responses might not have data: prefix
                         try:
                             chunk_data = json.loads(line)
-                            chunk = self._convert_stream_chunk(chunk_data)
-                            if chunk:
-                                yield chunk
                         except json.JSONDecodeError:
                             continue
+
+                    chunk = self._convert_stream_chunk(chunk_data)
+                    if chunk:
+                        yield chunk
 
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="qwen",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e
 
+    @override
     async def _achat_stream_impl(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """Implementation of asynchronous streaming chat request."""
         url = f"{self._get_base_url()}/services/aigc/text-generation/generation"
         payload = self._convert_request(request)
 
         # Ensure streaming is enabled
-        if "parameters" not in payload:
-            payload["parameters"] = {}
-        payload["parameters"]["incremental_output"] = True
+        params = payload.get("parameters")
+        if isinstance(params, dict):
+            params["incremental_output"] = True
+        else:
+            payload["parameters"] = {"incremental_output": True}
 
         try:
             async with self.async_client.stream("POST", url, json=payload) as response:
@@ -334,26 +402,26 @@ class QwenProvider(BaseProvider):
 
                         try:
                             chunk_data = json.loads(data)
-                            chunk = self._convert_stream_chunk(chunk_data)
-                            if chunk:
-                                yield chunk
                         except json.JSONDecodeError:
                             continue
                     else:
                         # Some responses might not have data: prefix
                         try:
                             chunk_data = json.loads(line)
-                            chunk = self._convert_stream_chunk(chunk_data)
-                            if chunk:
-                                yield chunk
                         except json.JSONDecodeError:
                             continue
+
+                    chunk = self._convert_stream_chunk(chunk_data)
+                    if chunk:
+                        yield chunk
 
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="qwen",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e

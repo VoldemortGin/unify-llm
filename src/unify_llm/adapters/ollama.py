@@ -1,56 +1,95 @@
-"""Ollama provider implementation for local models."""
+"""本地 Ollama provider(adapters 层):直连本机 /api/chat,无需 API key。
 
+Ollama 在本地起服务(默认 http://localhost:11434),请求体用 ``messages`` + ``options``
+(temperature/top_p/stop/num_predict),响应里 ``done`` 标记是否收尾;流式为换行分隔的
+JSON 对象(newline-delimited JSON),每行 ``json.loads`` 后转换,``done`` 为真即停。
 
-from __future__ import annotations
+本文件是 OLD ``unify_llm.providers.ollama`` 在严格门禁下的现代化移植:parse-don't-validate
+(私有 ``_Raw*`` pydantic 契约)、PEP604/内建泛型、``@override``、三分支错误归一(本地常见
+ConnectError 经 ``self._network_error`` 落到 ProviderError)。
+"""
 
 import json
 import time
-from typing import AsyncIterator, Iterator, Optional
+from collections.abc import AsyncIterator, Iterator
+from typing import override
 
 import httpx
+from pydantic import BaseModel, Field
 
+from unify_llm.adapters.base import BaseProvider
 from unify_llm.core.exceptions import TimeoutError as UnifyTimeoutError
 from unify_llm.models import (
     ChatRequest,
     ChatResponse,
     ChatResponseChoice,
+    FinishReason,
     Message,
     MessageDelta,
+    Role,
     StreamChoiceDelta,
     StreamChunk,
     Usage,
 )
-from unify_llm.providers.base import BaseProvider
+
+
+# ── parse-don't-validate:Ollama /api/chat 响应/流式 chunk 的最小 pydantic 契约 ──
+class _RawMessage(BaseModel):
+    """响应/chunk 里的 message 对象(只取 role + content)。"""
+
+    role: Role = Role.ASSISTANT
+    content: str = ""
+
+
+class _RawResponse(BaseModel):
+    """非流式 /api/chat 响应的最小契约。"""
+
+    model: str = ""
+    message: _RawMessage = Field(default_factory=_RawMessage)
+    done: bool = False
+    prompt_eval_count: int = 0
+    eval_count: int = 0
+    created_at: str | None = None
+
+
+class _RawChunk(BaseModel):
+    """流式换行分隔 JSON 单个 chunk 的最小契约。"""
+
+    model: str = ""
+    message: _RawMessage = Field(default_factory=_RawMessage)
+    done: bool = False
+    created_at: str | None = None
 
 
 class OllamaProvider(BaseProvider):
     """Ollama provider implementation for local models.
 
-    Ollama runs locally and provides OpenAI-compatible API for various models
-    including Llama, Mistral, Phi, and others.
+    Ollama runs locally and exposes ``/api/chat`` for various models (Llama,
+    Mistral, Phi, ...). No API key is required — headers are just Content-Type
+    plus any configured extra headers.
     """
 
-    def _get_headers(self) -> dict:
-        """Get headers for Ollama API requests."""
-        headers = {
-            "Content-Type": "application/json",
-        }
-
-        # Add any extra headers
+    @override
+    def _get_headers(self) -> dict[str, str]:
+        """Get headers for Ollama API requests (no auth, only Content-Type + extras)."""
+        headers: dict[str, str] = {"Content-Type": "application/json"}
         headers.update(self.config.extra_headers)
-
         return headers
 
+    @override
     def _get_base_url(self) -> str:
-        """Get the base URL for Ollama API."""
+        """Get the base URL for Ollama API (defaults to the local daemon)."""
         return self.config.base_url or "http://localhost:11434"
 
-    def _convert_request(self, request: ChatRequest) -> dict:
+    @override
+    def _convert_request(self, request: ChatRequest) -> dict[str, object]:
         """Convert ChatRequest to Ollama API format.
 
-        Ollama uses a format similar to OpenAI but with some differences.
+        Ollama uses a format similar to OpenAI but funnels generation params
+        through an ``options`` dict (``num_predict`` for max_tokens, ``stop`` as
+        a list).
         """
-        payload = {
+        payload: dict[str, object] = {
             "model": request.model,
             "messages": [
                 {
@@ -63,7 +102,7 @@ class OllamaProvider(BaseProvider):
         }
 
         # Ollama uses "options" for generation parameters
-        options = {}
+        options: dict[str, object] = {}
 
         if request.temperature is not None:
             options["temperature"] = request.temperature
@@ -86,30 +125,32 @@ class OllamaProvider(BaseProvider):
 
         return payload
 
-    def _convert_response(self, response: dict) -> ChatResponse:
-        """Convert Ollama API response to ChatResponse."""
-        message_data = response.get("message", {})
+    @override
+    def _convert_response(self, response: dict[str, object]) -> ChatResponse:
+        """Convert Ollama API response to ChatResponse (parse-don't-validate)."""
+        parsed = _RawResponse.model_validate(response)
+
         message = Message(
-            role=message_data.get("role", "assistant"),
-            content=message_data.get("content", ""),
+            role=parsed.message.role,
+            content=parsed.message.content,
         )
 
         choice = ChatResponseChoice(
             index=0,
             message=message,
-            finish_reason="stop" if response.get("done") else None,
+            finish_reason=FinishReason.STOP if parsed.done else None,
         )
 
         # Ollama provides token counts in some responses
         usage = Usage(
-            prompt_tokens=response.get("prompt_eval_count", 0),
-            completion_tokens=response.get("eval_count", 0),
-            total_tokens=(response.get("prompt_eval_count", 0) + response.get("eval_count", 0)),
+            prompt_tokens=parsed.prompt_eval_count,
+            completion_tokens=parsed.eval_count,
+            total_tokens=parsed.prompt_eval_count + parsed.eval_count,
         )
 
         return ChatResponse(
-            id=response.get("created_at", str(int(time.time()))),
-            model=response.get("model", ""),
+            id=parsed.created_at if parsed.created_at is not None else str(int(time.time())),
+            model=parsed.model,
             choices=[choice],
             usage=usage,
             created=int(time.time()),
@@ -117,16 +158,17 @@ class OllamaProvider(BaseProvider):
             raw_response=response,
         )
 
-    def _convert_stream_chunk(self, chunk: dict) -> StreamChunk | None:
-        """Convert Ollama stream chunk to StreamChunk."""
+    @override
+    def _convert_stream_chunk(self, chunk: dict[str, object]) -> StreamChunk | None:
+        """Convert Ollama stream chunk to StreamChunk (parse-don't-validate)."""
         if not chunk:
             return None
 
-        message_data = chunk.get("message", {})
-        content = message_data.get("content", "")
+        parsed = _RawChunk.model_validate(chunk)
+        content = parsed.message.content
 
         # Skip empty content chunks unless it's the final chunk
-        if not content and not chunk.get("done"):
+        if not content and not parsed.done:
             return None
 
         delta = MessageDelta(content=content if content else None)
@@ -134,17 +176,18 @@ class OllamaProvider(BaseProvider):
         choice = StreamChoiceDelta(
             index=0,
             delta=delta,
-            finish_reason="stop" if chunk.get("done") else None,
+            finish_reason=FinishReason.STOP if parsed.done else None,
         )
 
         return StreamChunk(
-            id=chunk.get("created_at", str(int(time.time()))),
-            model=chunk.get("model", ""),
+            id=parsed.created_at if parsed.created_at is not None else str(int(time.time())),
+            model=parsed.model,
             choices=[choice],
             created=int(time.time()),
             provider="ollama",
         )
 
+    @override
     def _chat_impl(self, request: ChatRequest) -> ChatResponse:
         """Implementation of synchronous chat request."""
         url = f"{self._get_base_url()}/api/chat"
@@ -157,12 +200,15 @@ class OllamaProvider(BaseProvider):
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="ollama",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e
 
+    @override
     async def _achat_impl(self, request: ChatRequest) -> ChatResponse:
         """Implementation of asynchronous chat request."""
         url = f"{self._get_base_url()}/api/chat"
@@ -175,12 +221,15 @@ class OllamaProvider(BaseProvider):
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="ollama",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e
 
+    @override
     def _chat_stream_impl(self, request: ChatRequest) -> Iterator[StreamChunk]:
         """Implementation of synchronous streaming chat request."""
         url = f"{self._get_base_url()}/api/chat"
@@ -197,26 +246,30 @@ class OllamaProvider(BaseProvider):
 
                     try:
                         chunk_data = json.loads(line)
-                        chunk = self._convert_stream_chunk(chunk_data)
-                        if chunk:
-                            yield chunk
-
-                        # Stop if done
-                        if chunk_data.get("done"):
-                            break
-
                     except json.JSONDecodeError:
                         continue
+
+                    parsed = _RawChunk.model_validate(chunk_data)
+                    chunk = self._convert_stream_chunk(chunk_data)
+                    if chunk:
+                        yield chunk
+
+                    # Stop if done
+                    if parsed.done:
+                        break
 
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="ollama",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e
 
+    @override
     async def _achat_stream_impl(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """Implementation of asynchronous streaming chat request."""
         url = f"{self._get_base_url()}/api/chat"
@@ -232,22 +285,25 @@ class OllamaProvider(BaseProvider):
 
                     try:
                         chunk_data = json.loads(line)
-                        chunk = self._convert_stream_chunk(chunk_data)
-                        if chunk:
-                            yield chunk
-
-                        # Stop if done
-                        if chunk_data.get("done"):
-                            break
-
                     except json.JSONDecodeError:
                         continue
+
+                    parsed = _RawChunk.model_validate(chunk_data)
+                    chunk = self._convert_stream_chunk(chunk_data)
+                    if chunk:
+                        yield chunk
+
+                    # Stop if done
+                    if parsed.done:
+                        break
 
         except httpx.TimeoutException as e:
             raise UnifyTimeoutError(
                 message=f"Request timed out after {self.config.timeout}s",
-                provider="ollama",
+                provider=self.name,
             ) from e
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e)
             raise
+        except httpx.RequestError as e:
+            raise self._network_error(e) from e
