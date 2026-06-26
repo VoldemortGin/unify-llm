@@ -4,7 +4,6 @@ adapters 是 ports 的具体实现,也是唯一允许直连厂商 HTTP 的层。
 共用的 HTTP 管线(连接池 / 重试 / 错误分类 / 网络错归一)与两个解析小工具。
 """
 
-import asyncio
 import contextlib
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable, Iterator
@@ -77,16 +76,26 @@ class BaseProvider(ABC):
         async_client: Async HTTP client for making requests
     """
 
-    def __init__(self, config: ProviderConfig) -> None:
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
         """Initialize the provider.
 
         Args:
-            config: Provider configuration
+            config: Provider configuration.
+            client: Optional injected sync HTTP client (e.g. a process-wide shared client).
+                When provided it is NOT owned by this provider (the injector closes it);
+                when omitted a private client is self-built and owned.
+            async_client: Optional injected async HTTP client (same ownership semantics).
         """
         self.config = config
         self.name = self.__class__.__name__.replace("Provider", "").lower()
 
-        # Create HTTP clients with connection pooling
+        # Create HTTP clients with connection pooling (only for the self-built ones).
         timeout = httpx.Timeout(connect=5.0, read=self.config.timeout, write=10.0, pool=5.0)
         headers = self._get_headers()
         limits = httpx.Limits(
@@ -95,36 +104,43 @@ class BaseProvider(ABC):
             keepalive_expiry=30.0,
         )
 
-        self.client = httpx.Client(timeout=timeout, headers=headers, limits=limits)
-        self.async_client = httpx.AsyncClient(timeout=timeout, headers=headers, limits=limits)
+        if client is not None:
+            self.client = client
+            self._owns_client = False
+        else:
+            self.client = httpx.Client(timeout=timeout, headers=headers, limits=limits)
+            self._owns_client = True
+
+        if async_client is not None:
+            self.async_client = async_client
+            self._owns_async_client = False
+        else:
+            self.async_client = httpx.AsyncClient(timeout=timeout, headers=headers, limits=limits)
+            self._owns_async_client = True
 
     def __del__(self) -> None:
-        """Clean up HTTP clients."""
-        with contextlib.suppress(Exception):
-            self.client.close()
-        # SECURITY FIX: Also close async client to prevent resource leaks
-        try:
-            if hasattr(self, "async_client") and self.async_client:
-                loop: asyncio.AbstractEventLoop | None
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    loop = None
-                if loop and loop.is_running():
-                    loop.create_task(self.async_client.aclose())
-                else:
-                    # If no running loop, create one to close
-                    asyncio.run(self.async_client.aclose())
-        except Exception:
-            pass
+        """Best-effort close of the OWNED sync client only (ADR-10).
+
+        Deliberately never touches the async client and never runs an event loop: the
+        previous ``asyncio.run(self.async_client.aclose())`` exploded when GC happened
+        inside a long-lived loop (e.g. the gateway). httpx 0.28 ``AsyncClient`` has no
+        ``__del__`` and emits no ``ResourceWarning`` when an unused client is GC'd, so
+        abandoning an owned async client here is safe. An injected/shared client is owned
+        by its injector and must not be closed here.
+        """
+        if getattr(self, "_owns_client", False):
+            with contextlib.suppress(Exception):
+                self.client.close()
 
     def close(self) -> None:
-        """Explicitly close HTTP clients (recommended over relying on __del__)."""
-        self.client.close()
+        """Close the sync HTTP client if this provider owns it."""
+        if self._owns_client:
+            self.client.close()
 
     async def aclose(self) -> None:
-        """Explicitly close async HTTP client."""
-        await self.async_client.aclose()
+        """Close the async HTTP client if this provider owns it."""
+        if self._owns_async_client:
+            await self.async_client.aclose()
 
     def __enter__(self) -> Self:
         """Sync context manager entry."""
@@ -136,8 +152,9 @@ class BaseProvider(ABC):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Sync context manager exit."""
-        self.client.close()
+        """Sync context manager exit (closes the sync client only if owned)."""
+        if self._owns_client:
+            self.client.close()
 
     async def __aenter__(self) -> Self:
         """Async context manager entry."""
@@ -149,8 +166,9 @@ class BaseProvider(ABC):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Async context manager exit."""
-        await self.async_client.aclose()
+        """Async context manager exit (closes the async client only if owned)."""
+        if self._owns_async_client:
+            await self.async_client.aclose()
 
     @abstractmethod
     def _get_headers(self) -> dict[str, str]:

@@ -159,10 +159,17 @@ class _RawStreamChunk(BaseModel):
 class OpenAICompatibleProvider(BaseProvider):
     """所有 OpenAI 兼容厂商共用的实现;差异由注入的 OpenAICompatSpec 表达。"""
 
-    def __init__(self, config: ProviderConfig, spec: OpenAICompatSpec | None = None) -> None:
+    def __init__(
+        self,
+        config: ProviderConfig,
+        spec: OpenAICompatSpec | None = None,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
         """绑定 spec 后再起 HTTP 管线(super().__init__ 会回调 _get_headers,需 spec 先就位)。"""
         self._spec = spec if spec is not None else OPENAI_COMPAT_SPECS["openai"]
-        super().__init__(config)
+        super().__init__(config, client=client, async_client=async_client)
         self.name = self._spec.name
 
     @override
@@ -432,33 +439,73 @@ class OpenAICompatibleProvider(BaseProvider):
 class OpenAIProvider(OpenAICompatibleProvider):
     """OpenAI(GPT-4o / o-series 等)。"""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        super().__init__(config, OPENAI_COMPAT_SPECS["openai"])
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        super().__init__(
+            config, OPENAI_COMPAT_SPECS["openai"], client=client, async_client=async_client
+        )
 
 
 class GrokProvider(OpenAICompatibleProvider):
     """xAI Grok(api.x.ai,env XAI_API_KEY)。"""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        super().__init__(config, OPENAI_COMPAT_SPECS["grok"])
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        super().__init__(
+            config, OPENAI_COMPAT_SPECS["grok"], client=client, async_client=async_client
+        )
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
     """OpenRouter(统一聚合,env OPENROUTER_API_KEY)。"""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        super().__init__(config, OPENAI_COMPAT_SPECS["openrouter"])
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        super().__init__(
+            config, OPENAI_COMPAT_SPECS["openrouter"], client=client, async_client=async_client
+        )
 
 
 class ByteDanceProvider(OpenAICompatibleProvider):
     """ByteDance 豆包 / Ark(content 强制非空,env BYTEDANCE_API_KEY)。"""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        super().__init__(config, OPENAI_COMPAT_SPECS["bytedance"])
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        super().__init__(
+            config, OPENAI_COMPAT_SPECS["bytedance"], client=client, async_client=async_client
+        )
 
 
 class DeepSeekProvider(OpenAICompatibleProvider):
     """DeepSeek(api.deepseek.com,env DEEPSEEK_API_KEY)。"""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        super().__init__(config, OPENAI_COMPAT_SPECS["deepseek"])
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        super().__init__(
+            config, OPENAI_COMPAT_SPECS["deepseek"], client=client, async_client=async_client
+        )

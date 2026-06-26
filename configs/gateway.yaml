@@ -1,0 +1,24 @@
+# 网关示例配置(源样例;测试一律在代码里自建 GatewayConfig,不读本文件)。
+#
+# 应用 key 只存 sha256,明文从不落盘。下方 demo key 的明文是 "demo-app-key"
+# (sha256 由 unify_llm.gateway.config.hash_app_key("demo-app-key") 算出)。
+# 客户端用 `Authorization: Bearer demo-app-key` 调用;上游真实厂商 key 由服务端从 env 取。
+app_keys:
+  - app_id: demo
+    key_sha256: 5181bf7b72b66a9c4c69c081147f29a55917a674701af189b6b79289c871fb0f
+    allowed_models:
+      - gpt-4o-mini
+    rate_limit_rpm: 60
+    rate_limit_tpm: 100000
+    budget_usd: 10.0
+
+# 公开 model id → 上游 provider/model(含每千 token 计价,用于预算扣减)。
+models:
+  gpt-4o-mini:
+    provider: openai
+    upstream_model: gpt-4o-mini
+    input_price_per_1k: 0.00015
+    output_price_per_1k: 0.0006
+
+budget_window_seconds: 86400
+backend: memory

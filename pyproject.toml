@@ -24,12 +24,16 @@ dependencies = [
     "pyyaml>=6.0.3",
     "python-dotenv>=1.2.1",
     "beartype>=0.18.0",
+    # 网关已是核心交付(Phase 4):mypy src 需对 gateway/ 全严类型检查,故进主依赖。
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
 ]
 
 [project.optional-dependencies]
-# 未来网关/调度才需要的死重;核心不该拉,装了才用。
+# 未来调度才需要的死重;核心不该拉,装了才用。
 agent = ["croniter>=2.0.0"]
-gateway = ["fastapi>=0.110.0", "uvicorn>=0.27.0"]
+# 生产水平扩展用的网关限流/预算后端;不装则只用内存后端(默认)。
+redis = ["redis>=5.0.0"]
 
 [dependency-groups]
 # 开发工具走 PEP 735 group:uv `sync` 默认安装、`uv run` 默认保留
@@ -41,6 +45,8 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
     "hypothesis>=6.0.0",
+    # redis-py 自带类型提示:让 `mypy src` 能对可选 Redis 后端严格类型检查(测试不连真 Redis)。
+    "redis>=5.0.0",
 ]
 
 [project.urls]

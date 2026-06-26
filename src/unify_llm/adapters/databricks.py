@@ -8,6 +8,8 @@ workspace 一个,没有静态默认),故覆写 _get_base_url;鉴权仍是 Bearer
 import os
 from typing import override
 
+import httpx
+
 from unify_llm.adapters.openai_compatible import OpenAICompatibleProvider, OpenAICompatSpec
 from unify_llm.models import ProviderConfig
 
@@ -22,8 +24,14 @@ _SPEC = OpenAICompatSpec(
 class DatabricksProvider(OpenAICompatibleProvider):
     """Databricks(OpenAI 兼容,base URL 来自 DATABRICKS_BASE_URL)。"""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        super().__init__(config, _SPEC)
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        super().__init__(config, _SPEC, client=client, async_client=async_client)
 
     @override
     def _get_base_url(self) -> str:

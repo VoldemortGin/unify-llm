@@ -7,6 +7,8 @@ AnthropicProvider(Messages API)区别开:这里走 OpenAI 风格的 /chat/comple
 
 from typing import override
 
+import httpx
+
 from unify_llm.adapters.openai_compatible import OpenAICompatibleProvider, OpenAICompatSpec
 from unify_llm.models import ProviderConfig
 
@@ -21,8 +23,14 @@ _SPEC = OpenAICompatSpec(
 class AnthropicOpenAIProvider(OpenAICompatibleProvider):
     """用 OpenAI 风格 API 调 Claude;鉴权头为 x-api-key。"""
 
-    def __init__(self, config: ProviderConfig) -> None:
-        super().__init__(config, _SPEC)
+    def __init__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> None:
+        super().__init__(config, _SPEC, client=client, async_client=async_client)
 
     @override
     def _get_headers(self) -> dict[str, str]:

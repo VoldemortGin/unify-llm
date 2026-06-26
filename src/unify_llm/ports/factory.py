@@ -9,7 +9,9 @@
 """
 
 import os
-from collections.abc import Callable
+from typing import Protocol, runtime_checkable
+
+import httpx
 
 from unify_llm.adapters.anthropic import AnthropicProvider
 from unify_llm.adapters.anthropic_openai import AnthropicOpenAIProvider
@@ -32,8 +34,21 @@ from unify_llm.models import ProviderConfig
 from unify_llm.ports.llm import LLMProvider
 from unify_llm.utils import ENV_VAR_MAP, get_api_key_from_env, requires_api_key
 
-# 一个 builder 接受 ProviderConfig、产出一个满足 LLMProvider 的 provider(类即 builder)。
-ProviderBuilder = Callable[[ProviderConfig], BaseProvider]
+
+# 一个 builder 接受 ProviderConfig(+ 可选注入的共享 HTTP 客户端)、产出一个满足 LLMProvider
+# 的 provider(provider 类即 builder,结构上满足本 Protocol)。Protocol 而非裸 Callable:让具名
+# 类的 ``(config, *, client=None, async_client=None)`` 构造签名在 mypy 严格下被结构化接受。
+# runtime_checkable:beartype On 时按"是否可调用"对 builder 参数/REGISTRY 值做结构判定。
+@runtime_checkable
+class ProviderBuilder(Protocol):
+    def __call__(
+        self,
+        config: ProviderConfig,
+        *,
+        client: httpx.Client | None = None,
+        async_client: httpx.AsyncClient | None = None,
+    ) -> BaseProvider: ...
+
 
 # 唯一 provider 注册表(收编自 client.UnifyLLM._providers)。
 REGISTRY: dict[str, ProviderBuilder] = {
@@ -66,14 +81,24 @@ def _unknown(name: str) -> InvalidRequestError:
     return InvalidRequestError(f"Provider '{name}' not supported. Available providers: {available}")
 
 
-def build(provider: str, config: ProviderConfig) -> LLMProvider:
-    """纯查表构造一个 provider(未知 → raise)。门面用,不做 Mock 回退。"""
+def build(
+    provider: str,
+    config: ProviderConfig,
+    *,
+    client: httpx.Client | None = None,
+    async_client: httpx.AsyncClient | None = None,
+) -> LLMProvider:
+    """纯查表构造一个 provider(未知 → raise)。门面用,不做 Mock 回退。
+
+    ``client`` / ``async_client`` 可注入进程级共享 HTTP 客户端(网关用);省略则 provider 自建私有
+    客户端并自负关闭。mock → MockProvider(不接受客户端,忽略注入)。
+    """
     if provider.lower() == "mock":
         return MockProvider()
     builder = REGISTRY.get(provider.lower())
     if builder is None:
         raise _unknown(provider)
-    return builder(config)
+    return builder(config, client=client, async_client=async_client)
 
 
 def make_llm(
@@ -85,6 +110,8 @@ def make_llm(
     max_retries: int = 3,
     organization: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    http_client: httpx.AsyncClient | None = None,
+    http_client_sync: httpx.Client | None = None,
 ) -> LLMProvider:
     """按入参/env 选 provider 并装配;缺 key 时非生产回退 Mock、生产硬失败。
 
@@ -92,6 +119,8 @@ def make_llm(
         provider: provider 名;None 时取 ``APP_LLM_PROVIDER`` env 或 settings.llm_provider。
         api_key: 显式 key;None 时经注册表从对应 env 取。
         base_url / timeout / max_retries / organization / extra_headers: 透传 ProviderConfig。
+        http_client: 可注入的进程级共享异步 HTTP 客户端(网关用,provider 不负责关闭它)。
+        http_client_sync: 可注入的同步 HTTP 客户端;省略则 provider 自建私有同步客户端。
 
     Returns:
         一个满足 LLMProvider 的实现。
@@ -133,4 +162,4 @@ def make_llm(
         organization=organization,
         extra_headers=extra_headers or {},
     )
-    return REGISTRY[name](config)
+    return REGISTRY[name](config, client=http_client_sync, async_client=http_client)
