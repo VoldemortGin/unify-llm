@@ -1,0 +1,48 @@
+# unify-llm 网关 + Redis(限流/预算共享态,多 worker / 横向扩容靠它)。
+#
+# 机密只走 .env(宿主 chmod 600,绝不进 git/镜像);上游厂商 key 由工厂在请求期从 env 取,
+# 绝不出网关响应/日志。TLS + 域名建议前置 Caddy/Traefik(见 docs/deploy.md),故网关只绑到
+# 127.0.0.1,不直接对公网开端口。
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: unify-llm-gateway:latest
+    restart: unless-stopped
+    # 机密(上游各 provider key + APP_LLM_PROVIDER)从 .env 注入。
+    env_file:
+      - .env
+    # 部署期固定项(覆盖 .env 同名值):生产硬失败 + 配置源 + 走 Redis 共享态。
+    environment:
+      APP_ENV: production
+      APP_GATEWAY_CONFIG: /app/configs/gateway.yaml
+      APP_RATELIMIT_BACKEND: redis
+      APP_REDIS_URL: redis://redis:6379/0
+    # 应用 key 表 + 模型路由(仅 sha256,非机密);改路由不必重建镜像,只重启容器。
+    volumes:
+      - ./configs/gateway.yaml:/app/configs/gateway.yaml:ro
+    # 只绑本机;由宿主上的 Caddy/Traefik 反代加 TLS 后对外。
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # 限流/预算是易失共享态:关持久化(无 RDB/AOF),轻量即可。
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

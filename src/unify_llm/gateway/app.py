@@ -7,6 +7,7 @@
 
 import contextlib
 import json
+import os
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -16,7 +17,7 @@ from fastapi import Depends, FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from unify_llm.gateway.auth import AuthContext, require_auth
-from unify_llm.gateway.config import GatewayConfig, ModelRoute
+from unify_llm.gateway.config import GatewayConfig, ModelRoute, load_gateway_config
 from unify_llm.gateway.errors import register_exception_handlers
 from unify_llm.gateway.ratelimit import RateLimiter, build_backend
 from unify_llm.gateway.router import check_model_allowed, resolve_route
@@ -183,5 +184,28 @@ def create_app(
     return app
 
 
-# 模块级默认应用(空默认配置),供 ``uvicorn unify_llm.gateway.app:app`` 直接拉起。
-app = create_app()
+def _build_default_app() -> FastAPI:
+    """容器/生产入口用的默认应用,供 ``uvicorn unify_llm.gateway.app:app`` 直接拉起。
+
+    配置全走 env(机密不进镜像):
+    - 应用 key 表 + 模型路由从 YAML 加载(``APP_GATEWAY_CONFIG`` 指向挂载的 gateway.yaml,
+      缺省 ``configs/gateway.yaml``;仅 sha256,非机密);
+    - 限流/预算后端由 ``APP_RATELIMIT_BACKEND`` / ``APP_REDIS_URL`` 覆盖(水平扩容时设 redis)。
+
+    上游真实厂商 key 仍由工厂在请求期各自从 env 取,绝不进配置文件,也绝不出网关响应/日志。
+    """
+    config = load_gateway_config()
+    overrides: dict[str, object] = {}
+    backend = os.getenv("APP_RATELIMIT_BACKEND")
+    if backend:
+        overrides["backend"] = backend
+    redis_url = os.getenv("APP_REDIS_URL")
+    if redis_url:
+        overrides["redis_url"] = redis_url
+    if overrides:
+        config = config.model_copy(update=overrides)
+    return create_app(config)
+
+
+# 模块级默认应用:env/yaml 驱动(供 ``uvicorn unify_llm.gateway.app:app`` 直接拉起)。
+app = _build_default_app()

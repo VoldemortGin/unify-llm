@@ -1,0 +1,42 @@
+# 构建上下文裁剪:镜像只需 pyproject/uv.lock/README/src/configs/gateway.yaml(见 Dockerfile)。
+
+# 版本控制 / 编辑器 / 本地工具
+.git
+.gitignore
+.github
+.idea
+.vscode
+.jbeval
+.claude
+
+# Python 缓存 / 构建产物 / 覆盖率
+__pycache__/
+*.py[cod]
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.hypothesis
+.coverage
+htmlcov
+build/
+dist
+*.egg-info
+
+# 虚拟环境(镜像内由 uv 重建,绝不复用宿主的)
+.venv
+venv
+
+# 测试 / notebook / 文档 / 脚本(运行时不需要)
+tests
+notebooks
+docs
+scripts
+
+# 机密 / 本地配置(绝不进镜像;走运行时 env / 挂载)
+.env
+.env.*
+
+# 杂项
+.DS_Store
+.python-version
+*.log

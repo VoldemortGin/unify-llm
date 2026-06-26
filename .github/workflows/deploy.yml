@@ -1,0 +1,122 @@
+# OPTIONAL deploy workflow — DISABLED BY DEFAULT.
+#
+# This workflow does NOT run on ordinary pushes. It only runs when you either:
+#   * manually click "Run workflow" (workflow_dispatch), or
+#   * push a version tag matching v*.*.* (e.g. v0.1.2).
+# So merging to main never triggers a deploy — you stay in control.
+#
+# It builds the gateway image, pushes it to GHCR, then SSHes into the Vultr host
+# to pull the new code/image and `docker compose up -d`.
+#
+# All credentials are GitHub Secrets PLACEHOLDERS — set these under
+# Settings → Secrets and variables → Actions before enabling:
+#   SSH_HOST          public IP or hostname of the Vultr VPS
+#   SSH_USER          deploy user on the VPS (e.g. "deploy")
+#   SSH_KEY           private SSH key (PEM) authorized on the VPS
+#   SSH_PORT          (optional) SSH port, defaults to 22
+#   DEPLOY_PATH       (optional) repo path on the VPS, defaults to ~/unify-llm
+#   REGISTRY_TOKEN    token with packages:write for GHCR (or use GITHUB_TOKEN)
+# No real secret values appear in this file.
+
+name: Deploy
+
+on:
+  workflow_dispatch:        # manual, on-demand deploy (disabled-by-default semantics)
+  push:
+    tags:
+      - 'v*.*.*'            # also deploy when a release tag is pushed
+
+permissions:
+  contents: read
+  packages: write           # push the image to GHCR
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/unify-llm-gateway
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          # Prefer a dedicated REGISTRY_TOKEN; fall back to the auto GITHUB_TOKEN.
+          password: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          IMAGE="${REGISTRY,,}/${IMAGE_NAME,,}"
+          # Tag with the git tag name when present, otherwise the short SHA, plus latest.
+          REF_TAG="${GITHUB_REF_NAME//\//-}"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          VERSION_TAG="${REF_TAG:-$SHORT_SHA}"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          {
+            echo "tags<<EOF"
+            echo "$IMAGE:$VERSION_TAG"
+            echo "$IMAGE:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    # Optional environment gate — add required reviewers in the repo's
+    # "production" environment to require manual approval before deploy.
+    environment: production
+    steps:
+      - name: SSH into Vultr host and roll the stack
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          envs: GHCR_USER,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH || '$HOME/unify-llm' }}"
+
+            # Pull the latest source (gateway.yaml routing, compose, Dockerfile).
+            git pull --ff-only
+
+            # Authenticate to GHCR on the host so it can pull the pushed image
+            # (only needed if you switch docker-compose.yml to `image:` from the
+            # registry instead of building locally).
+            echo "$GHCR_TOKEN" | docker login ${{ env.REGISTRY }} \
+              -u "$GHCR_USER" --password-stdin
+
+            # Roll the stack. `--build` rebuilds locally from the pulled source;
+            # drop `--build` and add `docker compose pull` if you deploy the
+            # registry image instead.
+            docker compose up -d --build
+            docker image prune -f
+
+            # Post-deploy health check on the loopback port.
+            curl -fsS http://127.0.0.1:8080/healthz
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
